@@ -86,9 +86,18 @@ class ONNXClassifierWrapper:
         err = cudart.cudaMemcpyAsync(
             self.d_input, batch.ctypes.data, batch.nbytes, cudart.cudaMemcpyKind.cudaMemcpyHostToDevice, self.stream
         )
-        if err != cudart.cudaError_t.cudaSuccess:
-            raise RuntimeError(f"Failed to copy input to device: {cudart.cudaGetErrorString(err)}")
+        
+        # if err != cudart.cudaError_t.cudaSuccess:
+        #     raise RuntimeError(f"Failed to copy input to device: {cudart.cudaGetErrorString(err)}")
+        if isinstance(err, tuple):
+            err_code = err[0]
+        else:
+            err_code = err
 
+        if err_code != cudart.cudaError_t.cudaSuccess:
+            err_str = cudart.cudaGetErrorString(err_code)
+            raise RuntimeError(f"Failed to copy input to device: {err_str}")
+        
         # execute model
         self.context.execute_async_v3(self.stream)
 
@@ -100,14 +109,28 @@ class ONNXClassifierWrapper:
             cudart.cudaMemcpyKind.cudaMemcpyDeviceToHost,
             self.stream,
         )
-        if err != cudart.cudaError_t.cudaSuccess:
-            raise RuntimeError(f"Failed to copy output from device: {cudart.cudaGetErrorString(err)}")
+        # if err != cudart.cudaError_t.cudaSuccess:
+        #     raise RuntimeError(f"Failed to copy output from device: {cudart.cudaGetErrorString(err)}")
+        if isinstance(err, tuple):
+            err_code = err[0]
+        else:
+            err_code = err
 
+        if err_code != cudart.cudaError_t.cudaSuccess:
+            err_str = cudart.cudaGetErrorString(err_code)
+            raise RuntimeError(f"Failed to copy output from device: {err_str}")
         # synchronize threads
         err = cudart.cudaStreamSynchronize(self.stream)
-        if err != cudart.cudaError_t.cudaSuccess:
-            raise RuntimeError(f"Failed to synchronize stream: {cudart.cudaGetErrorString(err)}")
+        # if err != cudart.cudaError_t.cudaSuccess:
+        #     raise RuntimeError(f"Failed to synchronize stream: {cudart.cudaGetErrorString(err)}")
+        if isinstance(err, tuple):
+            err_code = err[0]
+        else:
+            err_code = err
 
+        if err_code != cudart.cudaError_t.cudaSuccess:
+            err_str = cudart.cudaGetErrorString(err_code)
+            raise RuntimeError(f"Failed to synchronize stream: {err_str}")
         return self.output
 
     def cleanup(self):

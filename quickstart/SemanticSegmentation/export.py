@@ -61,7 +61,7 @@ torch.onnx.export(
     model,
     input_tensor,
     output_onnx,
-    opset_version=12,
+    opset_version=18,
     do_constant_folding=True,
     input_names=["input"],
     output_names=["output"],
