@@ -22,7 +22,7 @@
 - [x] 构建 py 对比 trt 的推理。
 - [x] 训练权重保存至 onnx, 避免反复训练加载。
 - [x] 全局的显存统计，而非简单的 torch。
-- [ ] 支持动态尺寸，观察耗时与显存变化。
+- [ ] 支持[动态尺寸](https://docs.nvidia.com/deeplearning/tensorrt/latest/inference-library/dynamic-shapes-basics.html#opt-profiles)，观察耗时与显存变化。
 - [ ] stream overlap验证: trt 工具benchMark 验证；手搓 stream 验证。
 
 ## 示例工作原理

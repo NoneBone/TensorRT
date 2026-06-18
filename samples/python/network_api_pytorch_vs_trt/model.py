@@ -168,9 +168,9 @@ class MnistModel(object):
         self.network.eval()
         with torch.no_grad():
             nvTT.time_push("inference")
-            MP._record_memory_snapshot("before")
+            # MP._record_memory_snapshot("before")
             outputs = self.network(data_batch)  # (batch_size, 10)
-            MP._record_memory_snapshot("after")
+            MP._record_memory_snapshot("afinf")
             nvTT.time_pop("inference")
             
             preds = outputs.argmax(dim=1)      # (batch_size,)

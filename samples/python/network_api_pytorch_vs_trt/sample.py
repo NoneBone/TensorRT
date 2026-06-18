@@ -17,6 +17,7 @@
 
 import os
 import sys
+import argparse
 
 from helper import *
 # This sample uses an MNIST PyTorch model to create a TensorRT Inference Engine
@@ -33,9 +34,9 @@ TRT_LOGGER = trt.Logger(trt.Logger.WARNING)
 
 
 class ModelData(object):
-    INPUT_NAME = "data"
+    INPUT_NAME = "input"
     INPUT_SHAPE = (-1, 1, 28, 28)
-    OUTPUT_NAME = "prob"
+    OUTPUT_NAME = "output"
     OUTPUT_SIZE = 10
     DTYPE = trt.float32
 
@@ -119,49 +120,61 @@ def populate_network(network, weights):
     network.mark_output(tensor=fc2.get_output(0))
 
 
-def build_engine(weights, max_batch_size=1024):
-    # For more information on TRT basics, refer to the introductory samples.
-    nvTT.time_push("create_network")
+def build_engine(weights, max_batch_size=1024, READ_EXIST=False):
+    '''
+    READ_EXIST 的启用，依赖于 trtexec 工具输出的 engine/trt。
+    如果需要细粒度控制转换过程, 可以 ①TODO: 采用 poly 工具编辑 onnx 后再转换; ②基于权重构建 engine, 如 else 分支
+    '''
+    if READ_EXIST:
+        nvTT.time_push("READ_EXIST")
+        f = open("mnist_fp32_dBS.trt", "rb")
+        runtime = trt.Runtime(trt.Logger(trt.Logger.WARNING))
+        engine = runtime.deserialize_cuda_engine(f.read())
+        nvTT.time_pop()
+        return engine
+    else:
+        # For more information on TRT basics, refer to the introductory samples.
+        nvTT.time_push("create_network")
 
-    builder = trt.Builder(TRT_LOGGER)
-    network = builder.create_network(1 << int(trt.NetworkDefinitionCreationFlag.STRONGLY_TYPED))
-    config = builder.create_builder_config()
-    runtime = trt.Runtime(TRT_LOGGER)
+        builder = trt.Builder(TRT_LOGGER)
+        network = builder.create_network(1 << int(trt.NetworkDefinitionCreationFlag.STRONGLY_TYPED))
+        config = builder.create_builder_config()
+        runtime = trt.Runtime(TRT_LOGGER)
 
-    config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, common.GiB(1))
+        config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, common.GiB(1))
 
-    # Optimization Profile
-    profile = builder.create_optimization_profile()
-    #   min shape  (batch=1)
-    profile.set_shape(
-        ModelData.INPUT_NAME,
-        min=(1, *ModelData.INPUT_SHAPE[1:]),          # (1,1,28,28)
-        opt=(max(1, max_batch_size // 4), *ModelData.INPUT_SHAPE[1:]),  # 例如 8
-        max=(max_batch_size, *ModelData.INPUT_SHAPE[1:]),               # (max,1,28,28)
-    )
-    profile.set_shape(
-        ModelData.OUTPUT_NAME,
-        min=(1, ModelData.OUTPUT_SIZE),
-        opt=(max(1, max_batch_size // 4), ModelData.OUTPUT_SIZE),
-        max=(max_batch_size, ModelData.OUTPUT_SIZE),
-    )
-    config.add_optimization_profile(profile)
+        # Optimization Profile
+        profile = builder.create_optimization_profile()
+        #   min shape  (batch=1)
+        profile.set_shape(
+            ModelData.INPUT_NAME,
+            min=(1, *ModelData.INPUT_SHAPE[1:]),          # (1,1,28,28)
+            opt=(max(1, max_batch_size // 4), *ModelData.INPUT_SHAPE[1:]),  # 例如 8
+            max=(max_batch_size, *ModelData.INPUT_SHAPE[1:]),               # (max,1,28,28)
+        )
+        profile.set_shape(
+            ModelData.OUTPUT_NAME,
+            min=(1, ModelData.OUTPUT_SIZE),
+            opt=(max(1, max_batch_size // 4), ModelData.OUTPUT_SIZE),
+            max=(max_batch_size, ModelData.OUTPUT_SIZE),
+        )
+        config.add_optimization_profile(profile)
 
-    # Populate the network using weights from the PyTorch model.
-    nvTT.time_pop("create_network")
-    nvTT.time_push("populate")
-    populate_network(network, weights)
-    nvTT.time_pop("populate")
+        # Populate the network using weights from the PyTorch model.
+        nvTT.time_pop("create_network")
+        nvTT.time_push("populate")
+        populate_network(network, weights)
+        nvTT.time_pop("populate")
 
-    # Build and return an engine.
-    nvTT.time_push("serial")
-    plan = builder.build_serialized_network(network, config)
-    nvTT.time_pop()
-    nvTT.time_push("deSerial")
-    deplan = runtime.deserialize_cuda_engine(plan)
-    nvTT.time_pop()
+        # Build and return an engine.
+        nvTT.time_push("serial")
+        plan = builder.build_serialized_network(network, config)
+        nvTT.time_pop()
+        nvTT.time_push("deSerial")
+        deplan = runtime.deserialize_cuda_engine(plan)
+        nvTT.time_pop()
 
-    return deplan
+        return deplan
 
 
 def load_batch_testcase(model, host_buffer, batch):
@@ -176,21 +189,27 @@ def load_batch_testcase(model, host_buffer, batch):
     return label_batch.numpy()
 
 # TRT
-ONNX_OUTPUT = 1
-USE_TRT = 0 # 采用单独的脚本，启动 TRT 引擎
-BATCH_SIZE = 1024
+ONNX_OUTPUT = 0
+# BATCH_SIZE = 1024 # 注意：测试集全部也只有 1000 张图
 max_batch = 1024
 
-USE_PYTORCH = not USE_TRT
 MP.ONLY_TORCH_TENSOR = False
 PT_WEIGHTS = "mnist_fp32.pth"
 ONNX_PATH = "mnist_fp32_dBS.onnx"
 
-def main():
+def main(args=None):
+    parser = argparse.ArgumentParser(description="MNIST TensorRT Demo")
+    parser.add_argument("--bs", type=int, default=16, help="Inference batch size")
+    parser.add_argument("--inf_back", type=int, default=1, help="1 for use trt banckend, 0 for pytorch.")
+    args = parser.parse_args(args)
+    global BATCH_SIZE, USE_TRT
+    BATCH_SIZE = args.bs
+    USE_TRT = args.inf_back
+
     common.add_help(description="Runs an MNIST network using a PyTorch model")
     # Train the PyTorch model
     nvTT.time_push("t_allTime")
-    MP._record_memory_snapshot("init")
+    # MP._record_memory_snapshot("init")
     mnist_model = model.MnistModel()
 
     if os.path.exists(PT_WEIGHTS):
@@ -222,16 +241,18 @@ def main():
 
     # Do inference.
     MP._record_memory_snapshot("afload")
-    if USE_PYTORCH:
+    if not USE_TRT:
+        print("[Info] inference backend: py ...")
         mnist_model.mytest(batch_size=BATCH_SIZE)
     else:
-        engine = build_engine(weights, max_batch)
+        print("[Info] inference backend: trt ...")
+        engine = build_engine(weights, max_batch, READ_EXIST=False) # TODO: Fall back when not exist
         # Build an engine, allocate buffers and create a stream.
         # For more information on buffer allocation, refer to the introductory samples.
-        MP._record_memory_snapshot("afBuild")
+        # MP._record_memory_snapshot("afBuild")
         nvTT.time_push("allocate")
         inputs, outputs, bindings = common.allocate_buffers(engine, max_batch=max_batch)
-        MP._record_memory_snapshot("afAlloc")
+        # MP._record_memory_snapshot("afAlloc")
 
         context = engine.create_execution_context()
         nvTT.time_pop("allocate")
@@ -269,24 +290,26 @@ def main():
             common.free_buffers(inputs, outputs)
             nvTT.time_pop("post")
 
-        if max_batch > BATCH_SIZE:
-            output = output[:BATCH_SIZE*10]
+        real_bs = min(min(max_batch, BATCH_SIZE), labels.size)
+        output = output[:real_bs*10]
+        output.shape = (real_bs, 10)
 
-        output.shape = (BATCH_SIZE, 10)
         preds = np.argmax(output, axis=1)
         correct = int(np.sum(preds == labels))
-        accuracy = correct / BATCH_SIZE
-        print(f"Batch Size: {BATCH_SIZE}")
-        print(f"Accuracy: {accuracy:.4f} ({correct}/{BATCH_SIZE})")
+        accuracy = correct / real_bs
+        print(f"Batch Size: {real_bs}")
+        print(f"Accuracy: {accuracy:.4f} ({correct}/{real_bs})")
         
     nvTT.time_pop("t_allTime")
-    nvTT.save_print_time()
+    nvTT.save_print_time(pFlag=True)
+    MP.print_summary()
+    MP.reset()
+
+        # nvTT.print_avg_stats()
+        # PRINT_PEAK_MEM()
 
 
 if __name__ == "__main__":
     nvTT.nvtx_start()
     main()
     nvTT.nvtx_stop()
-    nvTT.print_avg_stats()
-    PRINT_PEAK_MEM()
-    MP.print_summary()

@@ -91,9 +91,9 @@ class nvtxTimeTable(object):
         '''
         每轮结束时调用，打印，保存，刷新
         '''
-        result = "\t"
+        result = "== " # "\t"
         result += ", ".join(self.timeDict.keys()) + ": "
-        result += ", ".join(f"{v:.2f}" for v in self.timeDict.values())
+        result += ", ".join(f"{v:.4f}" for v in self.timeDict.values())
         if pFlag: print(result)
         if not self.MultiEpochTime: # 第一次保存时，初始化
             for k in self.timeDict.keys():
