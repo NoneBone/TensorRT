@@ -174,15 +174,17 @@ def load_batch_testcase(model, host_buffer, batch):
     np.copyto(host_buffer[: flat.size], flat)
 
     return label_batch.numpy()
+
 # TRT
-USE_TRT = 1
-BATCH_SIZE = 64
+ONNX_OUTPUT = 1
+USE_TRT = 0 # 采用单独的脚本，启动 TRT 引擎
+BATCH_SIZE = 1024
 max_batch = 1024
 
 USE_PYTORCH = not USE_TRT
 MP.ONLY_TORCH_TENSOR = False
 PT_WEIGHTS = "mnist_fp32.pth"
-ONNX_PATH = "mnist_fp32.onnx"
+ONNX_PATH = "mnist_fp32_dBS.onnx"
 
 def main():
     common.add_help(description="Runs an MNIST network using a PyTorch model")
@@ -208,14 +210,20 @@ def main():
         nvTT.time_push("weight")
         mnist_model.save_weights(PT_WEIGHTS)
         nvTT.time_pop()
-        # TODO: 开关控制 onnx 输出，用于另外的 快速 TRT 推理脚本
+        import sys
+        sys.exit()
+
+    # 开关控制 onnx 输出，用于另外的 快速 TRT 推理脚本
+    if ONNX_OUTPUT:
+        print("[Info] Exporting model to ONNX...")
+        mnist_model.export_onnx(ONNX_PATH)
         import sys
         sys.exit()
 
     # Do inference.
     MP._record_memory_snapshot("afload")
     if USE_PYTORCH:
-        mnist_model.mytest(batch_size=1)
+        mnist_model.mytest(batch_size=BATCH_SIZE)
     else:
         engine = build_engine(weights, max_batch)
         # Build an engine, allocate buffers and create a stream.

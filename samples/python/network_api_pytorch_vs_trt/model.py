@@ -189,3 +189,39 @@ class MnistModel(object):
             torch.load(path, map_location=device)
         )
         # self.eval()
+
+    def export_onnx(self, onnx_path: str, opset_version: int = 18):
+        """
+        将当前模型导出为 ONNX 文件，支持动态 batch size。
+
+        参数
+        ----------
+        onnx_path: str
+            导出文件的完整路径（例如 "model.onnx"）。
+        opset_version: int, optional
+            ONNX opset 版本，默认 12，兼容大多数 TensorRT/ONNXRuntime 环境。
+        """
+        self.network.eval()  # 切换到 eval 模式，关闭 dropout / batchnorm 的 training 行为
+
+        # 使用一个 dummy 输入来 trace 模型。这里的 batch 维度设为 1，后面会声明为动态。
+        dummy_input = torch.randn(1, 1, 28, 28, device='cuda')
+
+        # 动态轴的声明：第 0 维（batch）是动态的，其他维保持固定。
+        dynamic_axes = {
+            "input": {0: "batch_size"},
+            "output": {0: "batch_size"},
+        }
+
+        torch.onnx.export(
+            self.network,
+            dummy_input,
+            onnx_path,
+            external_data=False,          # 将模型参数写入 ONNX 文件
+            opset_version=opset_version,
+            do_constant_folding=False,    # 在导出前执行常量折叠优化
+            input_names=["input"],
+            output_names=["output"],
+            dynamo=False,
+            dynamic_axes=dynamic_axes,
+        )
+        print(f"[ONNX Export] Model exported to {onnx_path} (dynamic batch size)")
