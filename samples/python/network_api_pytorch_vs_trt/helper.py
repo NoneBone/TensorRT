@@ -106,7 +106,9 @@ class nvtxTimeTable(object):
         return result
 
     def print_avg_stats(self, dropWarmNum=0):
-        # calculate averages, skip N points because of warmup
+        ''' 
+        calculate averages, skip N points because of warmup
+        '''
         avg_stats = {}
         for k, v in self.MultiEpochTime.items():
             if len(v) > dropWarmNum:
@@ -138,7 +140,7 @@ from collections import defaultdict
 # import GPUtil
 
 class MemoryProfiler:
-    def __init__(self, model):
+    def __init__(self, model, use_torch_mem=True):
         self.model = model
         self.memory_log = []
         self.tensor_ids = set()
@@ -147,6 +149,8 @@ class MemoryProfiler:
         self.itr = 0
         self.maXitr = 0
         self.GPUs  = None
+        self.ONLY_TORCH_TENSOR=use_torch_mem
+
     def _get_tensor_memory(self, tensor):
         """获取单个tensor的显存占用"""
         if tensor is None:
@@ -162,16 +166,30 @@ class MemoryProfiler:
         return numel * element_size / 1024**2  # 转换为MB
     
     def _record_memory_snapshot(self, step_name, tensors=None, printFlag = False):
+        """记录显存快照, 入口名称建议 afOP, 即表示 OP 完成后的显存状态"""
         if not self.recordFlag:
             return
-        """记录显存快照"""
-        snapshot = {
-            'step': step_name,
-            'allocated': torch.cuda.memory_allocated() / 1024**2,
-            'reserved': torch.cuda.memory_reserved() / 1024**2,
-            'max_allocated': torch.cuda.max_memory_allocated() / 1024**2,
-            'tensors': defaultdict(float)
-        }
+        if self.ONLY_TORCH_TENSOR:
+            snapshot = {
+                'step': step_name,
+                'allocated': torch.cuda.memory_allocated() / 1024**2,
+                'reserved': torch.cuda.memory_reserved() / 1024**2,
+                'max_allocated': torch.cuda.max_memory_allocated() / 1024**2,
+                'tensors': defaultdict(float)
+            }
+        else:
+            import pynvml as ml
+            ml.nvmlInit()
+            handle = ml.nvmlDeviceGetHandleByIndex(3) #
+            info = ml.nvmlDeviceGetMemoryInfo(handle)
+
+            snapshot = {
+                'step': step_name,
+                'allocated': info.used / 1024**2,
+                'reserved': info.used / 1024**2, # TODO: fix
+                'max_allocated': info.free / 1024**2,# TODO: fix
+                'tensors': defaultdict(float)
+            }
         
         # 如果有tensor列表，记录每个tensor的显存
         if tensors is not None:
@@ -223,11 +241,7 @@ class MemoryProfiler:
             print(f"Peak Memory Usage [{self.maXitr}]: {self.peak_mem:.2f} MB")
 
     def reset(self,gpu_num=0, reset_peak=False):
-        """重置记录
-        
-        Args:
-            reset_peak: 是否重置峰值内存记录
-        """
+        """重置显存快照记录, 需要时重置显存峰值"""
         
         self.itr += 1
         # 记录当前的峰值（重置前）
@@ -252,7 +266,7 @@ class MemoryProfiler:
             self.peak_mem = 0
 
     def monitor_forward(self, *args, **kwargs):
-        """监控前向传播"""
+        """EXAMPLE: 手动trace前向传播的样例"""
         # 清理显存
         torch.cuda.empty_cache()
         torch.cuda.reset_peak_memory_stats()
@@ -314,7 +328,7 @@ class MemoryProfiler:
         return x
 
     def monitor_forward_auto(self, *args, **kwargs):
-        """自动监控前向传播（适用于任意模型）"""
+        """TODO: 自动监控前向传播（适用于任意模型）"""
         # 清理显存
         torch.cuda.empty_cache()
         torch.cuda.reset_peak_memory_stats()

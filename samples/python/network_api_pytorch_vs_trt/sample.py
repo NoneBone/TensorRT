@@ -34,7 +34,7 @@ TRT_LOGGER = trt.Logger(trt.Logger.WARNING)
 
 class ModelData(object):
     INPUT_NAME = "data"
-    INPUT_SHAPE = (1, 1, 28, 28)
+    INPUT_SHAPE = (-1, 1, 28, 28)
     OUTPUT_NAME = "prob"
     OUTPUT_SIZE = 10
     DTYPE = trt.float32
@@ -129,6 +129,24 @@ def build_engine(weights, max_batch_size=1024):
     runtime = trt.Runtime(TRT_LOGGER)
 
     config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, common.GiB(1))
+
+    # Optimization Profile
+    profile = builder.create_optimization_profile()
+    #   min shape  (batch=1)
+    profile.set_shape(
+        ModelData.INPUT_NAME,
+        min=(1, *ModelData.INPUT_SHAPE[1:]),          # (1,1,28,28)
+        opt=(max(1, max_batch_size // 4), *ModelData.INPUT_SHAPE[1:]),  # 例如 8
+        max=(max_batch_size, *ModelData.INPUT_SHAPE[1:]),               # (max,1,28,28)
+    )
+    profile.set_shape(
+        ModelData.OUTPUT_NAME,
+        min=(1, ModelData.OUTPUT_SIZE),
+        opt=(max(1, max_batch_size // 4), ModelData.OUTPUT_SIZE),
+        max=(max_batch_size, ModelData.OUTPUT_SIZE),
+    )
+    config.add_optimization_profile(profile)
+
     # Populate the network using weights from the PyTorch model.
     nvTT.time_pop("create_network")
     nvTT.time_push("populate")
@@ -146,14 +164,25 @@ def build_engine(weights, max_batch_size=1024):
     return deplan
 
 
-# Loads a random test case from pytorch's DataLoader
-def load_random_test_case(model, pagelocked_buffer):
-    # Select an image at random to be the test case.
-    img, expected_output = model.get_random_testcase()
-    # Copy to the pagelocked input buffer
-    np.copyto(pagelocked_buffer, img)
-    return expected_output
+def load_batch_testcase(model, host_buffer, batch):
+    data_batch, label_batch = next(iter(model.test_loader))
 
+    data_batch = data_batch[:batch]          # (batch, 1, 28, 28)
+    label_batch = label_batch[:batch]        # (batch,)
+
+    flat = data_batch.numpy().reshape(-1)   # float32, shape (batch*784,)
+    np.copyto(host_buffer[: flat.size], flat)
+
+    return label_batch.numpy()
+# TRT
+USE_TRT = 1
+BATCH_SIZE = 64
+max_batch = 1024
+
+USE_PYTORCH = not USE_TRT
+MP.ONLY_TORCH_TENSOR = False
+PT_WEIGHTS = "mnist_fp32.pth"
+ONNX_PATH = "mnist_fp32.onnx"
 
 def main():
     common.add_help(description="Runs an MNIST network using a PyTorch model")
@@ -161,43 +190,63 @@ def main():
     nvTT.time_push("t_allTime")
     MP._record_memory_snapshot("init")
     mnist_model = model.MnistModel()
-    nvTT.time_push("train")
-    MP._record_memory_snapshot("bfTrain")
-    mnist_model.learn()
-    nvTT.time_pop("train")
-    MP._record_memory_snapshot("bfWeight")
-    nvTT.time_push("weight")
-    weights = mnist_model.get_weights()
-    # Do inference with TensorRT.
-    nvTT.time_pop()
 
-    if 1:
-        MP._record_memory_snapshot("bfTest")
+    if os.path.exists(PT_WEIGHTS):
+        print(f"Found {PT_WEIGHTS}, loading weights...")
+        mnist_model.load_weights(PT_WEIGHTS, device="cpu")
+        nvTT.time_push("weight")
+        weights = mnist_model.get_weights()
+        nvTT.time_pop()
+    else:
+        print("No weights found, training from scratch...")
+        
+        nvTT.time_push("train")
+        MP._record_memory_snapshot("bfTrain")
+        mnist_model.learn()
+        nvTT.time_pop("train")
+        MP._record_memory_snapshot("bfWeight")
+        nvTT.time_push("weight")
+        mnist_model.save_weights(PT_WEIGHTS)
+        nvTT.time_pop()
+        # TODO: 开关控制 onnx 输出，用于另外的 快速 TRT 推理脚本
+        import sys
+        sys.exit()
+
+    # Do inference.
+    MP._record_memory_snapshot("afload")
+    if USE_PYTORCH:
         mnist_model.mytest(batch_size=1)
     else:
-        engine = build_engine(weights)
+        engine = build_engine(weights, max_batch)
         # Build an engine, allocate buffers and create a stream.
         # For more information on buffer allocation, refer to the introductory samples.
-        MP._record_memory_snapshot("bfTest")
+        MP._record_memory_snapshot("afBuild")
         nvTT.time_push("allocate")
-        batch_size=1
-        inputs, outputs, bindings = common.allocate_buffers(engine)
+        inputs, outputs, bindings = common.allocate_buffers(engine, max_batch=max_batch)
+        MP._record_memory_snapshot("afAlloc")
 
         context = engine.create_execution_context()
         nvTT.time_pop("allocate")
 
+        # context.set_binding_shape(0, (BATCH_SIZE, *ModelData.INPUT_SHAPE))
+        concrete_shape = (BATCH_SIZE, *ModelData.INPUT_SHAPE[1:])   # (BATCH_SIZE, 1, 28, 28)
+
+        # Set the dynamic input shape for the execution context.
+        context.set_input_shape(ModelData.INPUT_NAME, concrete_shape)
+        
+        nvTT.time_push("select")
+        # case_num = load_random_test_case(mnist_model, pagelocked_buffer=inputs[0].host)
+        labels = load_batch_testcase(
+            mnist_model, host_buffer=inputs[0].host, batch=BATCH_SIZE
+        )
+        nvTT.time_pop("select")
+    
         # Use context manager for proper stream lifecycle management
         with common.CudaStreamContext() as stream:
-            # TODO: dynamic batch support
-            nvTT.time_push("select")
-            case_num = load_random_test_case(mnist_model, pagelocked_buffer=inputs[0].host)
-            nvTT.time_pop("select")
-
             # For more information on performing inference, refer to the introductory samples.
             # The common.do_inference function will return a list of outputs - we only have one in this case.
             nvTT.time_push("inference")
-            MP._record_memory_snapshot("before")
-            [output] = common.do_inference(
+            [output] = common.do_inference(# TODO: 按照 BS 拷贝 output，而不是完整的输出 MAX_BS
                 context,
                 engine=engine,
                 bindings=bindings,
@@ -206,15 +255,22 @@ def main():
                 stream=stream,
             )
             nvTT.time_pop("inference")
-            MP._record_memory_snapshot("after")
+            MP._record_memory_snapshot("afinf")
 
             nvTT.time_push("post")
-            pred = np.argmax(output)
             common.free_buffers(inputs, outputs)
             nvTT.time_pop("post")
+
+        if max_batch > BATCH_SIZE:
+            output = output[:BATCH_SIZE*10]
+
+        output.shape = (BATCH_SIZE, 10)
+        preds = np.argmax(output, axis=1)
+        correct = int(np.sum(preds == labels))
+        accuracy = correct / BATCH_SIZE
+        print(f"Batch Size: {BATCH_SIZE}")
+        print(f"Accuracy: {accuracy:.4f} ({correct}/{BATCH_SIZE})")
         
-        print("Test Case: " + str(case_num))
-        print("Prediction: " + str(pred))
     nvTT.time_pop("t_allTime")
     nvTT.save_print_time()
 

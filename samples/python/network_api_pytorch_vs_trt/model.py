@@ -86,7 +86,7 @@ class MnistModel(object):
             self.network = self.network.to("cuda")
 
     # Train the network for one or more epochs, validating after each epoch.
-    def learn(self, num_epochs=1):
+    def learn(self, num_epochs=2):
         # Train the network for a single epoch
         def train(epoch):
             self.network.train()
@@ -155,28 +155,6 @@ class MnistModel(object):
         test_name = target.cpu().numpy()[case_num]
         return test_case, test_name
 
-    # def mytest(self):
-    #     """
-    #     随机抽取一条测试样本，使用 PyTorch 网络进行前向推理，
-    #     打印样本编号和预测标签，行为与 TRT 示例保持一致。
-    #     """
-    #     data_batch, target_batch = next(iter(self.test_loader))
-
-    #     case_num = randint(0, data_batch.size(0) - 1)
-    #     sample = data_batch[case_num].unsqueeze(0)   # (1, C, H, W)
-    #     label  = target_batch[case_num].item()
-
-    #     sample = sample.to('cuda')
-
-    #     self.network.eval()
-    #     with torch.no_grad():
-    #         output = self.network(sample)               # (1, 10)
-    #         pred = output.argmax(dim=1).item()          # 预测的类别
-
-    #     print("Test Case: " + str(label))
-    #     print("Prediction: " + str(pred))
-
-    #     return case_num, pred, label
     def mytest(self, batch_size=1000):
         """
         批量测试函数，支持任意 batch size 的推理
@@ -202,3 +180,12 @@ class MnistModel(object):
 
         print(f"Batch Size: {actual_batch_size}")
         print(f"Accuracy: {accuracy:.4f} ({correct}/{actual_batch_size})")
+
+    def save_weights(self, path="mnist_fp32.pth"):
+        torch.save(self.network.state_dict(), path)
+
+    def load_weights(self, path="mnist_fp32.pth", device="cpu"):
+        return self.network.load_state_dict(
+            torch.load(path, map_location=device)
+        )
+        # self.eval()

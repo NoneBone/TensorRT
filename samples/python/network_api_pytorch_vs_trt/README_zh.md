@@ -17,10 +17,13 @@
 
 本示例 `network_api_pytorch_mnist` 在 https://ossci-datasets.s3.amazonaws.com/mnist/ 数据集上训练一个卷积模型，并使用 TensorRT 引擎运行推理。
 
-1. 构建 py 对比 trt 的推理。
-2. 全局的显存统计，而非简单的 torch。
-2. 支持动态批尺寸设置，观察耗时与显存变化。
-3. 实现 stream overlap。
+## TODOList
+
+- [x] 构建 py 对比 trt 的推理。
+- [x] 训练权重保存至 onnx, 避免反复训练加载。
+- [x] 全局的显存统计，而非简单的 torch。
+- [ ] 支持动态尺寸，观察耗时与显存变化。
+- [ ] stream overlap验证: trt 工具benchMark 验证；手搓 stream 验证。
 
 ## 示例工作原理
 
