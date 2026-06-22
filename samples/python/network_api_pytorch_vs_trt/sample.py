@@ -21,7 +21,6 @@ import sys
 import argparse
 import cv2
 from helper import *
-
 # This sample uses an MNIST PyTorch model to create a TensorRT Inference Engine
 import model
 import numpy as np
@@ -37,25 +36,28 @@ TRT_LOGGER = trt.Logger(trt.Logger.WARNING)
 
 class ModelData(object):
     INPUT_NAME = "input"
-    INPUT_SHAPE = (-1, 1, 28, 28)
+    INPUT_SHAPE = (-1, 1, -1, -1)
     OUTPUT_NAME = "output"
     OUTPUT_SIZE = 10
     DTYPE = trt.float32
 
+    MIN_RES = 14
+    OPT_RES = 28
+    MAX_RES = 64
 
 def populate_network(network, weights):
-    # TODO: support for online resize
     # Configure the network layers based on the weights provided.
     input_tensor = network.add_input(
         name=ModelData.INPUT_NAME, dtype=ModelData.DTYPE, shape=ModelData.INPUT_SHAPE
     )
 
-    # REF: https://docs.nvidia.com/deeplearning/tensorrt/latest/_static/operators/Resize.html#python-api
-    # resize = network.add_resize(input_tensor)
-    # resize.resize_mode = trt.InterpolationMode.LINEAR
-    # resize.shape = (ModelData.OPT_RES, ModelData.OPT_RES)
-    # resize.coordinate_transformation = trt.ResizeCoordinateTransformation.ALIGN_CORNERS
-    # resize.name = "input_resize"
+    # REF: https://docs.nvidia.com/deeplearning/tensorrt/latest/_static/operators/Resize.html#examples
+    resize = network.add_resize(input_tensor)
+    resize.resize_mode = trt.InterpolationMode.NEAREST
+    # TODO: bs 设置为-1 会报错， bs 设置为 MAX_BS 会导致结果不太对。bs 目前必须得设置为 运行时实际bs, 导致了动态批尺寸并不支持
+    resize.shape = (BATCH_SIZE, 1, ModelData.OPT_RES, ModelData.OPT_RES)
+    resize.coordinate_transformation = trt.ResizeCoordinateTransformation.ALIGN_CORNERS
+    resize.name = "input_resize"
     
     def add_matmul_as_fc(net, input, outputs, w, b):
         assert len(input.shape) >= 3
@@ -85,11 +87,11 @@ def populate_network(network, weights):
         output_reshape = net.add_shuffle(bias_add.get_output(0))
         output_reshape.reshape_dims = trt.Dims4(m, n, 1, 1)
         return output_reshape
-
+    
     conv1_w = weights["conv1.weight"].cpu().numpy()
     conv1_b = weights["conv1.bias"].cpu().numpy()
     conv1 = network.add_convolution_nd(
-        input=input_tensor, # resize.get_output(0)
+        input=resize.get_output(0), # input_tensor
         num_output_maps=20,
         kernel_shape=(5, 5),
         kernel=conv1_w,
@@ -134,11 +136,11 @@ def build_engine(weights, max_batch_size=1024, READ_EXIST=False):
     '''
     READ_EXIST 的启用，依赖于 trtexec 工具输出的 engine/trt。
     如果需要细粒度控制转换过程, 可以 
-    ①TODO: 采用 poly 工具编辑 onnx 后再转换; 
+    ①采用 poly 工具编辑 onnx 后再转换; 
     ②基于权重构建 engine, 如 else 分支
     '''
     if READ_EXIST:
-        # TODO: NN 需要固定分辨率的输入, 输入待增添 resize 操作。
+        # 仅用于动态批尺寸测试, 暂不支持 resize 操作
         nvTT.time_push("READ_EXIST")
         f = open(ONNX_PATH.replace("onnx", "trt"), "rb")
         runtime = trt.Runtime(trt.Logger(trt.Logger.WARNING))
@@ -150,7 +152,13 @@ def build_engine(weights, max_batch_size=1024, READ_EXIST=False):
         nvTT.time_push("create_network")
 
         builder = trt.Builder(TRT_LOGGER)
-        network = builder.create_network(1 << int(trt.NetworkDefinitionCreationFlag.STRONGLY_TYPED))
+        network_creation_flag = 0
+        if "EXPLICIT_BATCH" in trt.NetworkDefinitionCreationFlag.__members__.keys():
+            network_creation_flag = 1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
+        else:
+            # pass
+            network_creation_flag = 1 << int(trt.NetworkDefinitionCreationFlag.STRONGLY_TYPED)
+        network = builder.create_network(network_creation_flag)
         config = builder.create_builder_config()
         runtime = trt.Runtime(TRT_LOGGER)
 
@@ -161,9 +169,15 @@ def build_engine(weights, max_batch_size=1024, READ_EXIST=False):
         #   min shape  (batch=1)
         profile.set_shape(
             ModelData.INPUT_NAME,
-            min=(1, *ModelData.INPUT_SHAPE[1:]),          # (1,1,28,28)
-            opt=(max(1, max_batch_size // 4), *ModelData.INPUT_SHAPE[1:]),  # 例如 8
-            max=(max_batch_size, *ModelData.INPUT_SHAPE[1:]),               # (max,1,28,28)
+            min=(1, *ModelData.INPUT_SHAPE[1:2], ModelData.MIN_RES, ModelData.MIN_RES),          # (1,1,28,28)
+            opt=(max(1, max_batch_size // 4), *ModelData.INPUT_SHAPE[1:2], ModelData.OPT_RES, ModelData.OPT_RES),
+            max=(max_batch_size, *ModelData.INPUT_SHAPE[1:2], ModelData.MAX_RES, ModelData.MAX_RES),
+        )
+        profile.set_shape(
+            "input_resize",
+            min=(1, *ModelData.INPUT_SHAPE[1:2], ModelData.OPT_RES, ModelData.OPT_RES),
+            opt=(max(1, max_batch_size // 4), *ModelData.INPUT_SHAPE[1:2], ModelData.OPT_RES, ModelData.OPT_RES),
+            max=(max_batch_size, *ModelData.INPUT_SHAPE[1:2], ModelData.OPT_RES, ModelData.OPT_RES),
         )
         profile.set_shape(
             ModelData.OUTPUT_NAME,
@@ -196,54 +210,55 @@ def load_batch_testcase(model, host_buffer, batch, targetSize = 28):
     data_batch = data_batch[:batch]          # (batch, 1, 28, 28)
     label_batch = label_batch[:batch]        # (batch,)
 
-    # # Resize
-    # resized = np.empty((batch, 1, targetSize, targetSize), dtype=np.float32)
-    # for i in range(batch):
-    #     img = data_batch[i].numpy().squeeze()          # (28, 28)
-    #     img_resized = cv2.resize(img, (targetSize, targetSize), interpolation=cv2.INTER_LINEAR)
-    #     resized[i, 0, :, :] = img_resized
-    # flat = resized.reshape(-1)   # float32, shape (batch*784,)
-    # # origin
-    flat = data_batch.numpy().reshape(-1)   # float32, shape (batch*784,)
+    # Resize
+    if(targetSize!=28):
+        resized = np.empty((batch, 1, targetSize, targetSize), dtype=np.float32)
+        for i in range(batch):
+            img = data_batch[i].numpy().squeeze()          # (28, 28)
+            img_resized = cv2.resize(img, (targetSize, targetSize), interpolation=cv2.INTER_LINEAR)
+            resized[i, 0, :, :] = img_resized
+        flat = resized.reshape(-1)   # float32, shape (batch*784,)
+        print(f"[INFO] input for trt is {resized.shape}")
+    else:
+        flat = data_batch.numpy().reshape(-1)   # float32, shape (batch*784,)
     np.copyto(host_buffer[: flat.size], flat)
 
     return label_batch.numpy()
 
-# TRT
-ONNX_OUTPUT = 0
-# BATCH_SIZE = 1024 # 注意：测试集全部也只有 1000 张图
-max_batch = 1024
 
-MP.ONLY_TORCH_TENSOR = False
-PT_WEIGHTS = "mnist_fp32.pth"
+# static para.
+MAX_BS = 1024                       # 注意：测试集全部也只有 1000 张图, 实际测试会 min 到 1000
+MP.ONLY_TORCH_TENSOR = False        # 设置 False 以记录全局显存开销
+PT_WEIGHTS = "mnist_fp32.pth"       # 训练参数详见 model.py Line51 & Line89
 ONNX_PATH = "mnist_fp32_dBS.onnx"
 
 def main(args=None):
     parser = argparse.ArgumentParser(description="MNIST TensorRT Demo")
-    parser.add_argument("--bs", type=int, default=1024, help="Inference batch size")
-    parser.add_argument("--inf_back", type=int, default=1, help="1 for use trt banckend, 0 for pytorch.")
+    parser.add_argument("--bs", type=int, default=1000, help="Inference batch size")
+    parser.add_argument("--use_trt", type=int, default=1, help="1 for use trt banckend, 0 for pytorch.")
     parser.add_argument("--shape", type=int, default=28, help="Input resolution (both H and W).")
+    parser.add_argument("--use_exist", type=int, default=0, help="1 仅限动态批尺寸测试, 0 都可以")
+    parser.add_argument("--outOnnx", type=int, default=0, help="输出 onnx 文件后退出")
     args = parser.parse_args(args)
-    global BATCH_SIZE, USE_TRT
+
+    global BATCH_SIZE
     BATCH_SIZE = args.bs
-    USE_TRT = args.inf_back
-    TARGET_RES = args.shape
+    SOURCE_RES = args.shape
 
     common.add_help(description="Runs an MNIST network using a PyTorch model")
     # Train the PyTorch model
     nvTT.time_push("t_allTime")
-    # MP._record_memory_snapshot("init")
+    MP._record_memory_snapshot("init")
     mnist_model = model.MnistModel()
 
     if os.path.exists(PT_WEIGHTS):
-        print(f"Found {PT_WEIGHTS}, loading weights...")
+        print(f"[Info] Found {PT_WEIGHTS}, loading weights...")
         mnist_model.load_weights(PT_WEIGHTS, device="cpu")
         nvTT.time_push("weight")
         weights = mnist_model.get_weights()
         nvTT.time_pop()
     else:
-        print("No weights found, training from scratch...")
-        
+        print("[Info] No weights found, training from scratch...")
         nvTT.time_push("train")
         MP._record_memory_snapshot("bfTrain")
         mnist_model.learn()
@@ -252,11 +267,9 @@ def main(args=None):
         nvTT.time_push("weight")
         mnist_model.save_weights(PT_WEIGHTS)
         nvTT.time_pop()
-        import sys
-        sys.exit()
+        print(f"[Info] Saved to {PT_WEIGHTS}.")
 
-    # 开关控制 onnx 输出，用于另外的 快速 TRT 推理脚本
-    if ONNX_OUTPUT:
+    if args.outOnnx:
         print("[Info] Exporting model to ONNX...")
         mnist_model.export_onnx(ONNX_PATH)
         import sys
@@ -264,33 +277,34 @@ def main(args=None):
 
     # Do inference.
     MP._record_memory_snapshot("afload")
-    if not USE_TRT:
+    if not args.use_trt:
         print("[Info] inference backend: py ...")
         mnist_model.mytest(batch_size=BATCH_SIZE)
     else:
         print("[Info] inference backend: trt ...")
-        engine = build_engine(weights, max_batch, READ_EXIST=False) # TODO: Fall back when not exist
+        engine = build_engine(weights, MAX_BS, READ_EXIST=args.use_exist)
         # Build an engine, allocate buffers and create a stream.
         # For more information on buffer allocation, refer to the introductory samples.
         # MP._record_memory_snapshot("afBuild")
         nvTT.time_push("allocate")
-        inputs, outputs, bindings = common.allocate_buffers(engine, max_batch=max_batch)
+        inputs, outputs, bindings = common.allocate_buffers(engine, max_batch=MAX_BS, max_res=SOURCE_RES)
         # MP._record_memory_snapshot("afAlloc")
 
         context = engine.create_execution_context()
         nvTT.time_pop("allocate")
 
-        # context.set_binding_shape(0, (BATCH_SIZE, *ModelData.INPUT_SHAPE))
-        concrete_shape = (BATCH_SIZE, 1, TARGET_RES, TARGET_RES)   # (BATCH_SIZE, 1, 28, 28)
-        # concrete_shape = (BATCH_SIZE, *ModelData.INPUT_SHAPE[1:])   # (BATCH_SIZE, 1, 28, 28)
-
+        concrete_shape = (BATCH_SIZE, 1, SOURCE_RES, SOURCE_RES)   # (BATCH_SIZE, 1, 28, 28)
         # Set the dynamic input shape for the execution context.
         context.set_input_shape(ModelData.INPUT_NAME, concrete_shape)
+
+        # WARNING: 无效配置，不存在于 io_names = [engine.get_tensor_name(i) for i in range(engine.num_io_tensors)]
+        # concrete_reshape = (BATCH_SIZE, 1, ModelData.OPT_RES, ModelData.OPT_RES)   # (BATCH_SIZE, 1, 28, 28)
+        # context.set_input_shape("input_resize", concrete_reshape) 
         
         nvTT.time_push("select")
         # case_num = load_random_test_case(mnist_model, pagelocked_buffer=inputs[0].host)
         labels = load_batch_testcase(
-            mnist_model, host_buffer=inputs[0].host, batch=BATCH_SIZE, targetSize=TARGET_RES,
+            mnist_model, host_buffer=inputs[0].host, batch=BATCH_SIZE, targetSize=SOURCE_RES,
         )
         nvTT.time_pop("select")
     
@@ -314,7 +328,7 @@ def main(args=None):
             common.free_buffers(inputs, outputs)
             nvTT.time_pop("post")
 
-        real_bs = min(min(max_batch, BATCH_SIZE), labels.size)
+        real_bs = min(min(MAX_BS, BATCH_SIZE), labels.size)
         output = output[:real_bs* ModelData.OUTPUT_SIZE]
         output.shape = (real_bs, ModelData.OUTPUT_SIZE)
 
@@ -329,8 +343,8 @@ def main(args=None):
     MP.print_summary()
     MP.reset()
 
-        # nvTT.print_avg_stats()
-        # PRINT_PEAK_MEM()
+    # nvTT.print_avg_stats()
+    # PRINT_PEAK_MEM()
 
 
 if __name__ == "__main__":

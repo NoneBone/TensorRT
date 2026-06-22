@@ -224,4 +224,4 @@ class MnistModel(object):
             dynamo=False,
             dynamic_axes=dynamic_axes,
         )
-        print(f"[ONNX Export] Model exported to {onnx_path} (dynamic batch size)")
+        print(f"[Info] Model exported to {onnx_path} (dynamic batch size)")
