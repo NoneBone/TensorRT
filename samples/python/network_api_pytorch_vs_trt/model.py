@@ -208,7 +208,7 @@ class MnistModel(object):
 
         # 动态轴的声明：第 0 维（batch）是动态的，其他维保持固定。
         dynamic_axes = {
-            "input": {0: "batch_size"},
+            "input": {0: "batch_size"}, # , 2: "height", 3: "width"
             "output": {0: "batch_size"},
         }
 

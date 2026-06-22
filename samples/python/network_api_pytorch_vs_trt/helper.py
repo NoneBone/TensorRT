@@ -1,11 +1,11 @@
 import os
-import multiprocessing
-if (multiprocessing.cpu_count()>= 40):
-    import subprocess
-    dev = '1' if "Xeon(R) Gold 6133" in subprocess.run(['lscpu'], capture_output=True, text=True).stdout else '3'
-else:
-    dev = '3'
-os.environ['CUDA_VISIBLE_DEVICES'] = dev
+# import multiprocessing
+# if (multiprocessing.cpu_count()>= 40):
+#     import subprocess
+#     dev = '1' if "Xeon(R) Gold 6133" in subprocess.run(['lscpu'], capture_output=True, text=True).stdout else '3'
+# else:
+#     dev = '3'
+os.environ['CUDA_VISIBLE_DEVICES'] = '5'
 # CUDA_VISIBLE_DEVICES set before importing torch
 
 import torch
