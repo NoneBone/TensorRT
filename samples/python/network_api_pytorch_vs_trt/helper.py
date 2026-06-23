@@ -1,14 +1,6 @@
-import os
-# import multiprocessing
-# if (multiprocessing.cpu_count()>= 40):
-#     import subprocess
-#     dev = '1' if "Xeon(R) Gold 6133" in subprocess.run(['lscpu'], capture_output=True, text=True).stdout else '3'
-# else:
-#     dev = '3'
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
-# CUDA_VISIBLE_DEVICES set before importing torch
-
 import torch
+import os
+print("[Info] CUDA_VISIBLE_DEVICES: ", os.environ.get('CUDA_VISIBLE_DEVICES', 'Not Set'))
 import resource
 import time
 
@@ -140,7 +132,7 @@ from collections import defaultdict
 # import GPUtil
 
 class MemoryProfiler:
-    def __init__(self, model, use_torch_mem=True):
+    def __init__(self, model, use_torch_mem=True, gpuid=0):
         self.model = model
         self.memory_log = []
         self.tensor_ids = set()
@@ -149,7 +141,8 @@ class MemoryProfiler:
         self.itr = 0
         self.maXitr = 0
         self.GPUs  = None
-        self.ONLY_TORCH_TENSOR=use_torch_mem 
+        self.ONLY_TORCH_TENSOR=use_torch_mem
+        self.gpuid=gpuid
 
     def _get_tensor_memory(self, tensor):
         """获取单个tensor的显存占用"""
@@ -180,7 +173,7 @@ class MemoryProfiler:
         else:
             import pynvml as ml
             ml.nvmlInit()
-            handle = ml.nvmlDeviceGetHandleByIndex(3) #
+            handle = ml.nvmlDeviceGetHandleByIndex(self.gpuid) #
             info = ml.nvmlDeviceGetMemoryInfo(handle)
 
             snapshot = {
@@ -374,6 +367,8 @@ class MemoryProfiler:
 
     
 MP = MemoryProfiler(model=None)  # 传入模型实例
+MP.gpuid=int(os.environ.get('CUDA_VISIBLE_DEVICES', 'Not Set'))
+MP.ONLY_TORCH_TENSOR = False        # 设置 False 以记录全局显存开销
 
 if __name__ == "__main__":
     class SimpleModel(nn.Module):

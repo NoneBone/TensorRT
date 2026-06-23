@@ -7,7 +7,7 @@
 1. 训练结果保存与快速加载：支持保存为 pth、onnx；支持读取以 pth、onnx、trt。
 2. 推理阶段性能对比：pytorch vs trt，显存占用与耗时分解。
 3. TRT[动态](https://docs.nvidia.com/deeplearning/tensorrt/latest/inference-library/work-with-dynamic-shapes.html)批尺寸推理：分辨率固定为 28*28，批尺寸介于 1 到 1024。
-4. TRT动态分辨率推理：批尺寸固定为 BATCH_SIZE，分辨率介于 1 到 1204。
+4. TRT动态分辨率推理：批尺寸固定为 BATCH_SIZE，分辨率介于 1x1 到 1024x1024。
 
 # Step
 
@@ -22,6 +22,8 @@ learn → PTH
 
 # Run
 
+NOTICE: `pip install -r requirements.txt`.
+
 ## 1. 动态批尺寸测试
 ```sh
 # 读取 pth 以创建 onnx （ 缺失时，会训练 2 轮以输出pth ）
@@ -34,13 +36,15 @@ python ./sample.py --use_exist 1 --use_trt 0 --bs 100
 # trt后端
 python ./sample.py --use_exist 1 --use_trt 1 --bs 100
 # 动态 BS 测试脚本（两种后端对比）
-./opt.sh
+./opt.sh 0
 ```
 ## 2. 动态分辨率测试
 
 ```sh
 # 执行测试
 python ./sample.py --use_exist 0 --use_trt 1 --shape 64
+# 动态 shape 测试脚本
+./opt.sh 1
 ```
 
 # Question
@@ -54,4 +58,4 @@ python ./sample.py --use_exist 0 --use_trt 1 --shape 64
 
 ## Q2 quant support
 
-待测试fp16, bf16.
+待测试fp16, bf16, 参考[NV-Quant](https://docs.nvidia.com/deeplearning/tensorrt/latest/inference-library/work-with-quantized-types.html).

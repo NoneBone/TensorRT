@@ -15,12 +15,17 @@
 # limitations under the License.
 #
 
-import os
 import sys
 # add
 import argparse
 import cv2
+
+import os
+# GPU_ID = 5
+# os.environ['CUDA_VISIBLE_DEVICES'] = str(GPU_ID)
+# set CUDA_VISIBLE_DEVICES before importing torch
 from helper import *
+
 # This sample uses an MNIST PyTorch model to create a TensorRT Inference Engine
 import model
 import numpy as np
@@ -41,9 +46,9 @@ class ModelData(object):
     OUTPUT_SIZE = 10
     DTYPE = trt.float32
 
-    MIN_RES = 14
+    MIN_RES = 1
     OPT_RES = 28
-    MAX_RES = 64
+    MAX_RES = 1024
 
 def populate_network(network, weights):
     # Configure the network layers based on the weights provided.
@@ -218,7 +223,7 @@ def load_batch_testcase(model, host_buffer, batch, targetSize = 28):
             img_resized = cv2.resize(img, (targetSize, targetSize), interpolation=cv2.INTER_LINEAR)
             resized[i, 0, :, :] = img_resized
         flat = resized.reshape(-1)   # float32, shape (batch*784,)
-        print(f"[INFO] input for trt is {resized.shape}")
+        print(f"[Info] input for trt is {resized.shape}")
     else:
         flat = data_batch.numpy().reshape(-1)   # float32, shape (batch*784,)
     np.copyto(host_buffer[: flat.size], flat)
@@ -227,28 +232,27 @@ def load_batch_testcase(model, host_buffer, batch, targetSize = 28):
 
 
 # static para.
-MAX_BS = 1024                       # 注意：测试集全部也只有 1000 张图, 实际测试会 min 到 1000
-MP.ONLY_TORCH_TENSOR = False        # 设置 False 以记录全局显存开销
-PT_WEIGHTS = "mnist_fp32.pth"       # 训练参数详见 model.py Line51 & Line89
-ONNX_PATH = "mnist_fp32_dBS.onnx"
+MAX_BS = 1024                       # 注意：测试集全部只有 1000 张图, 实际测试会 min 到 1000
+PT_WEIGHTS = "mnist_fp32.pth"       # 训练参数详见 model.py 51行 + 89行
+ONNX_PATH = "mnist_fp32_dynamic.onnx"
 
 def main(args=None):
     parser = argparse.ArgumentParser(description="MNIST TensorRT Demo")
     parser.add_argument("--bs", type=int, default=1000, help="Inference batch size")
     parser.add_argument("--use_trt", type=int, default=1, help="1 for use trt banckend, 0 for pytorch.")
     parser.add_argument("--shape", type=int, default=28, help="Input resolution (both H and W).")
-    parser.add_argument("--use_exist", type=int, default=0, help="1 仅限动态批尺寸测试, 0 都可以")
-    parser.add_argument("--outOnnx", type=int, default=0, help="输出 onnx 文件后退出")
+    parser.add_argument("--use_exist", type=int, default=0, help="1 for dynamic batch size test. 0 for dynamic resolution test.")
+    parser.add_argument("--outOnnx", type=int, default=0, help="Exit after exporting the ONNX file")
     args = parser.parse_args(args)
 
     global BATCH_SIZE
-    BATCH_SIZE = args.bs
+    BATCH_SIZE = min(args.bs, 1000)
     SOURCE_RES = args.shape
 
     common.add_help(description="Runs an MNIST network using a PyTorch model")
     # Train the PyTorch model
     nvTT.time_push("t_allTime")
-    MP._record_memory_snapshot("init")
+    # MP._record_memory_snapshot("init")
     mnist_model = model.MnistModel()
 
     if os.path.exists(PT_WEIGHTS):
