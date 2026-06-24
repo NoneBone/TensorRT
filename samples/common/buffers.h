@@ -255,13 +255,14 @@ public:
             mNames[name] = i;
 
             nvinfer1::DataType type = mEngine->getTensorDataType(name);
-
+            // 创建 ManagedBuffer 用于主从绑定
             std::unique_ptr<ManagedBuffer> manBuf{new ManagedBuffer()};
             manBuf->deviceBuffer = DeviceBuffer(volumes[i], type);
             manBuf->hostBuffer = HostBuffer(volumes[i], type);
-            void* deviceBuffer = manBuf->deviceBuffer.data();
-            mDeviceBindings.emplace_back(deviceBuffer);
-            mManagedBuffers.emplace_back(std::move(manBuf));
+            
+            void* deviceBuffer = manBuf->deviceBuffer.data();// 提取设备指针
+            mDeviceBindings.emplace_back(deviceBuffer);      // 引擎相关的设备缓冲器
+            mManagedBuffers.emplace_back(std::move(manBuf)); // 主从buffer 所有权移交
         }
     }
 

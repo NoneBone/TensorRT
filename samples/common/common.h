@@ -293,7 +293,7 @@ inline bool isDebug()
 {
     return std::getenv("TENSORRT_DEBUG") != nullptr;
 }
-
+// 自定义的删除器用于 cudaStream 销毁， 等号右侧为 lamba 表达式，等价于一个函数对象
 static auto StreamDeleter = [](cudaStream_t* pStream) {
     if (pStream)
     {
@@ -301,7 +301,8 @@ static auto StreamDeleter = [](cudaStream_t* pStream) {
         delete pStream;
     }
 };
-
+// 返回一个 带自定义删除器的 unique_ptr, 在析构时调用 cudaStreamDestroy并释放堆内存，实现 CUDA stream 的 RAII 管理
+// up::get 返回指向被管理对象的指针, reset则替换管理的对象
 inline std::unique_ptr<cudaStream_t, decltype(StreamDeleter)> makeCudaStream()
 {
     std::unique_ptr<cudaStream_t, decltype(StreamDeleter)> pStream(new cudaStream_t, StreamDeleter);
