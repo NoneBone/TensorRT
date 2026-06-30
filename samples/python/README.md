@@ -1,6 +1,8 @@
 General Setup Guide for Samples
 ==============================
 
+ en [English](./README.md) ｜ zh_CN [简体中文](./README_zh.md)
+
 
 ## Download Sample Data
 

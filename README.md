@@ -1,5 +1,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) [![Documentation](https://img.shields.io/badge/TensorRT-documentation-brightgreen.svg)](https://docs.nvidia.com/deeplearning/sdk/tensorrt-developer-guide/index.html) [![Roadmap](https://img.shields.io/badge/Roadmap-Q3_2026-brightgreen.svg)](documents/tensorrt_roadmap_2026q3.pdf)
 
+ en [English](./README.md) ｜ zh_CN [简体中文](./README_zh.md)
+
 # :mega::mega: Announcement :mega::mega:
 
 TensorRT 11.0 is now released with powerful new capabilities designed to accelerate your AI inference workflows. With this major version bump, TensorRT's API has been streamlined and a few legacy features have been removed.

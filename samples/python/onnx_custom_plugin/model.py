@@ -22,7 +22,7 @@ import wget
 import onnx
 import onnx_graphsurgeon as gs
 
-MODEL_URL = "https://github.com/onnx/models/raw/e77240a62df68ed13e3138a5812553a552b857bb/text/machine_comprehension/bidirectional_attention_flow/model/bidaf-9.onnx"
+MODEL_URL = "https://github.com/onnx/models/blob/main/validated/text/machine_comprehension/bidirectional_attention_flow/model/bidaf-9.onnx"
 
 WORKING_DIR = os.environ.get("TRT_WORKING_DIR") or os.path.dirname(
     os.path.realpath(__file__)

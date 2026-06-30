@@ -1,5 +1,7 @@
 # Utilizing a plugin with aliased I/O to realize in-place updates
 
+ en [English](./README.md) ｜ zh_CN [简体中文](./README_zh.md)
+
 ## Description
 
 This sample, `aliased_io_plugin`, implements a Python-based plugin for an in-place scatter-add operation.

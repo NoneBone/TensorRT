@@ -7,3 +7,22 @@ build/
 *.vcxproj
 externals/
 **/.DS_Store
+# added
+data/
+*.gz
+*.pb
+*.onnx
+*.onnx.data
+*.npz
+*.pyc
+
+*.engine
+*.trt
+*.pth
+*.jpg
+
+*.nsys-rep
+*.out
+bin/
+samples/python/detectron2/detectron2
+samples/python/onnx_custom_plugin/CategoryMapper_*.json

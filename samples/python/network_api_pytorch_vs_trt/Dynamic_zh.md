@@ -22,8 +22,14 @@ learn → PTH
 
 # Run
 
-NOTICE: `pip install -r requirements.txt`.
-
+- NOTICE: `pip install -r requirements.txt`.
+<!-- ```sh
+# Data Preparation
+mkdir ./data && cd ./data
+wget https://github.com/NVIDIA/TensorRT/releases/download/v11.0/tensorrt_sample_data_20260602.zip
+unzip *.zip
+export TRT_DATADIR=/usr/src/xxxxxx/data
+``` -->
 ## 1. 动态批尺寸测试
 ```sh
 # 读取 pth 以创建 onnx （ 缺失时，会训练 2 轮以输出pth ）

@@ -1,5 +1,7 @@
 # Detectron 2 Mask R-CNN R50-FPN 3x in TensorRT
 
+ en [English](./README.md) ｜ zh_CN [简体中文](./README_zh.md)
+
 Support for Detectron 2 Mask R-CNN R50-FPN 3x model in TensorRT. This script helps with converting, running and validating this model with TensorRT.
 
 ## Changelog

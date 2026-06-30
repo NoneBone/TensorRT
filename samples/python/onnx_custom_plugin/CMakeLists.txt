@@ -28,18 +28,15 @@ endif()
 
 # Sets variable to a value if variable is unset.
 macro(set_ifndef var val)
-    if(NOT ${var})
+    if(NOT DEFINED ${var})
         set(${var} ${val})
     endif()
     message(STATUS "Configurable variable ${var} set to ${${var}}")
 endmacro()
 
 # -------- CONFIGURATION --------
-if(NOT MSVC)
-    set_ifndef(TRT_LIB /usr/lib/x86_64-linux-gnu)
-    set_ifndef(TRT_INCLUDE /usr/include/x86_64-linux-gnu)
-
-endif()
+set_ifndef(TRT_INCLUDE "${TRT_INC_DIR}")
+set_ifndef(TRT_LIB "${TRT_LIB_DIR}")
 
 # Find dependencies:
 message("\nThe following variables are derived from the values of the previous variables unless provided explicitly:\n")

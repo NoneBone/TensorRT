@@ -1,5 +1,7 @@
 # Multi-Device Attention Inference with TensorRT
 
+ en [English](./README.md) ｜ zh_CN [简体中文](./README_zh.md)
+
 This sample demonstrates how to run a self-attention model across multiple GPUs using TensorRT's multi-device inference feature. It covers single-GPU execution as a baseline and multi-GPU execution using MPI for process management and NCCL for GPU-to-GPU communication.
 
 ## Introduction

@@ -306,6 +306,8 @@ def allocate_buffers(
     engine: trt.ICudaEngine,
     profile_idx: Optional[int] = None,
     context: Optional[trt.IExecutionContext] = None,
+    max_batch=1024,
+    max_res = 64,
 ):
     inputs = []
     outputs = []
@@ -349,13 +351,20 @@ def allocate_buffers(
 
         for binding in tensor_names:
             if shape_ctx is not None:
-                shape = tuple(shape_ctx.get_tensor_shape(binding))
+                shape = list(shape_ctx.get_tensor_shape(binding))
             else:
-                shape = tuple(engine.get_tensor_shape(binding))
-                if any(s < 0 for s in shape):
-                    raise ValueError(
-                        f"Binding {binding} has dynamic shape, but no profile was specified."
-                    )
+                shape = list(engine.get_tensor_shape(binding))
+            #     if any(s < 0 for s in shape):
+            #         raise ValueError(
+            #             f"Binding {binding} has dynamic shape, but no profile was specified."
+            #         )
+            for i, dim in enumerate(shape):
+                if dim==-1:
+                    if i==0:
+                        shape[i]=max_batch
+                    if i>1:
+                        shape[i]=max_res
+            shape = tuple(shape)
             size = trt.volume(shape)
             trt_type = engine.get_tensor_dtype(binding)
 

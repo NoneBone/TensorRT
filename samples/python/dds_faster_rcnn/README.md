@@ -1,4 +1,7 @@
 # DDS Faster R-CNN Object Detection in TensorRT
+
+ en [English](./README.md) ｜ zh_CN [简体中文](./README_zh.md)
+
 ## Introduction
 The `dds_faster_rcnn` sample demonstrates the usage of [tensorrt.IOutputAllocator](https://docs.nvidia.com/deeplearning/tensorrt/api/python_api/infer/Core/ExecutionContext.html#tensorrt.IOutputAllocator) in TensorRT to execute networks with data-dependent shape (DDS) outputs. In this sample, we showcase an end-to-end workflow for building and running an object detection model [Faster-RCNN](https://arxiv.org/abs/1506.01497).
 

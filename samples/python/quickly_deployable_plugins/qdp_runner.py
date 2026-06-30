@@ -54,7 +54,7 @@ def run_add(enable_autotune=False):
 
     # Populate network
     i_x = network.add_input(name="x", dtype=trt.DataType.FLOAT, shape=x.shape)
-
+    
     out = network.add_plugin(
         trtp.op.sample.elemwise_add_plugin(i_x, block_size=BLOCK_SIZE)
     )

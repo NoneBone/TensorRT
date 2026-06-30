@@ -133,8 +133,8 @@ bool SampleDynamicReshape::build()
             return false;
         }
 
-        bool result = buildPredictionEngine(*builder, *mRuntime, *profileStream)
-            && buildPreprocessorEngine(*builder, *mRuntime, *profileStream);
+        bool result = buildPredictionEngine(*builder, *mRuntime, *profileStream) // 解析 onnx，增添 softmax 层，序列化+反序列化
+            && buildPreprocessorEngine(*builder, *mRuntime, *profileStream);     // 构建预处理引擎，-1，1，-1，-1 to 1，1，28，28
         return result;
     }
     catch (std::runtime_error& e)
@@ -505,7 +505,7 @@ void printHelpInfo()
 int main(int argc, char** argv)
 {
     samplesCommon::Args args;
-    bool argsOK = samplesCommon::parseArgs(args, argc, argv);
+    bool argsOK = samplesCommon::parseArgs(args, argc, argv);// 参数解析
     if (!argsOK)
     {
         sample::gLogError << "Invalid arguments" << std::endl;
@@ -522,17 +522,17 @@ int main(int argc, char** argv)
 
     sample::gLogger.reportTestStart(sampleTest);
 
-    SampleDynamicReshape sample{initializeSampleParams(args)};
+    SampleDynamicReshape sample{initializeSampleParams(args)};// 初始化：输入数据，输出日志路径
 
-    if (!sample.build())
+    if (!sample.build())// 构建两类引擎: 预处理+预测引擎
     {
         return sample::gLogger.reportFail(sampleTest);
     }
-    if (!sample.prepare())
+    if (!sample.prepare())// 上下文与 buffer 分配
     {
         return sample::gLogger.reportFail(sampleTest);
     }
-    if (!sample.infer())
+    if (!sample.infer())// 预处理+测试执行
     {
         return sample::gLogger.reportFail(sampleTest);
     }
