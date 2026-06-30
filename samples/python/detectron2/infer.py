@@ -79,6 +79,7 @@ class TensorRTInfer:
             else:
                 self.outputs.append(binding)
 
+        self.allocations = [mem.device_ptr for mem in self.device_memories]
         assert self.batch_size > 0
         assert len(self.inputs) > 0
         assert len(self.outputs) > 0
@@ -134,7 +135,8 @@ class TensorRTInfer:
         detections = []
         for i in range(self.batch_size):
             detections.append([])
-            for n in range(int(nums[i])):
+            
+            for n in range(int(nums[i].item())):
                 # Select a mask.
                 mask = masks[i][n]
 

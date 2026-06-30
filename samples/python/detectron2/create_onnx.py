@@ -49,12 +49,16 @@ log = logging.getLogger("ModelHelper")
 class DET2GraphSurgeon:
     def __init__(self, saved_model_path, config_file, weights):
         """
-        Constructor of the Model Graph Surgeon object, to do the conversion of a Detectron 2 Mask R-CNN exported model
-        to an ONNX-TensorRT parsable model.
-        :param saved_model_path: The path pointing to the exported Detectron 2 Mask R-CNN ONNX model.
-        :param config_file: The path pointing to the Detectron 2 yaml file which describes the model.
-        :param config_file: Weights to load for the Detectron 2 model.
+        用于构建 Model Graph Surgeon object, 将导出的 Detectron 2 Mask R-CNN 模型转换为可解析的 ONNX-TensorRT 模型。  
+        :param saved_model_path: 指向导出的 Detectron 2 Mask R-CNN ONNX 模型的路径。  
+        :param config_file: 指向描述模型的 Detectron 2 YAML 文件的路径。  
+        :param weights: 要加载的 Detectron 2 模型权重。
         """
+        # Constructor of the Model Graph Surgeon object, to do the conversion of a Detectron 2 Mask R-CNN exported model
+        # to an ONNX-TensorRT parsable model.
+        # :param saved_model_path: The path pointing to the exported Detectron 2 Mask R-CNN ONNX model.
+        # :param config_file: The path pointing to the Detectron 2 yaml file which describes the model.
+        # :param weights: Weights to load for the Detectron 2 model.
 
         def det2_setup(config_file, weights):
             """
@@ -80,13 +84,13 @@ class DET2GraphSurgeon:
         # Getting model characteristics.
         self.fpn_out_channels = self.det2_cfg.MODEL.FPN.OUT_CHANNELS
         self.num_classes = self.det2_cfg.MODEL.ROI_HEADS.NUM_CLASSES
-        self.first_NMS_max_proposals = self.det2_cfg.MODEL.RPN.POST_NMS_TOPK_TEST
-        self.first_NMS_iou_threshold = self.det2_cfg.MODEL.RPN.NMS_THRESH
+        self.first_NMS_max_proposals = self.det2_cfg.MODEL.RPN.POST_NMS_TOPK_TEST # 1000
+        self.first_NMS_iou_threshold = self.det2_cfg.MODEL.RPN.NMS_THRESH # 0.7
         self.first_NMS_score_threshold = 0.01
         self.first_ROIAlign_pooled_size = (
             self.det2_cfg.MODEL.ROI_BOX_HEAD.POOLER_RESOLUTION
         )
-        self.first_ROIAlign_sampling_ratio = (
+        self.first_ROIAlign_sampling_ratio = (# 0
             self.det2_cfg.MODEL.ROI_BOX_HEAD.POOLER_SAMPLING_RATIO
         )
         self.first_ROIAlign_type = self.det2_cfg.MODEL.ROI_BOX_HEAD.POOLER_TYPE
@@ -179,16 +183,22 @@ class DET2GraphSurgeon:
 
     def get_anchors(self, sample_image):
         """
-        Detectron 2 exported ONNX does not contain anchors required for efficientNMS plug-in, so they must be generated
-        "offline" by calling actual Detectron 2 model and getting anchors from it.
-        :param sample_image: Sample image required to run through the model and obtain anchors.
-        Can be any image from a dataset. Make sure listed here Detectron 2 preprocessing steps
-        actually match your preprocessing steps. Otherwise, behavior can be unpredictable.
-        Additionally, anchors have to be generated for a fixed input dimensions,
-        meaning as soon as image leaves a preprocessor and enters predictor.model.backbone() it must have
-        a fixed dimension (1344x1344 in my case) that every single image in dataset must follow, since currently
-        TensorRT plug-ins do not support dynamic shapes.
+        导出的 Detectron 2 ONNX 文件中不包含高效 NMS 插件所需的锚点, 因此必须通过调用实际的 Detectron 2 模型并从中获取锚点来“离线”生成
+        :param sample_image: 需要样本图像来运行模型并生成锚点。可以是数据集中的任意图像, 
+        但必须确保此处列出的 Detectron 2 预处理步骤与您的预处理步骤一致, 否则行为可能不可预测。  
+        此外, 锚点必须针对固定的输入尺寸生成, 这意味着一旦图像离开预处理器并进入 predictor.model.backbone(),
+        其尺寸必须固定( 在我的情况下为 1344x1344) ,并且数据集中每张图像都必须遵循这一固定尺寸, 因为目前 TensorRT 插件不支持动态形状。TODO: TRT11或许支持了动态形状
         """
+        # Detectron 2 exported ONNX does not contain anchors required for efficientNMS plug-in, so they must be generated
+        # "offline" by calling actual Detectron 2 model and getting anchors from it.
+        # :param sample_image: Sample image required to run through the model and obtain anchors.
+        # Can be any image from a dataset. Make sure listed here Detectron 2 preprocessing steps
+        # actually match your preprocessing steps. Otherwise, behavior can be unpredictable.
+        # Additionally, anchors have to be generated for a fixed input dimensions,
+        # meaning as soon as image leaves a preprocessor and enters predictor.model.backbone() it must have
+        # a fixed dimension (1344x1344 in my case) that every single image in dataset must follow, since currently
+        # TensorRT plug-ins do not support dynamic shapes.
+        
         # Get Detectron 2 model config and build it.
         predictor = DefaultPredictor(self.det2_cfg)
         model = build_model(self.det2_cfg)
@@ -229,7 +239,7 @@ class DET2GraphSurgeon:
         Save the ONNX model to the given location.
         :param output_path: Path pointing to the location where to write out the updated ONNX model.
         """
-        self.graph.cleanup().toposort()
+        self.graph.cleanup().toposort() # 消除对 output 无贡献的 node，并按拓扑排序
         model = gs.export_onnx(self.graph)
         output_path = os.path.realpath(output_path)
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -238,6 +248,7 @@ class DET2GraphSurgeon:
 
     def update_preprocessor(self, batch_size):
         """
+        移除 ONNX 图中的所有预处理节点, 仅保留图像归一化的必要部分。
         Remove all the pre-processing nodes in the ONNX graph and leave only the image normalization essentials.
         :param batch_size: The batch size to use for the ONNX graph.
         """
@@ -251,7 +262,7 @@ class DET2GraphSurgeon:
         self.graph.inputs[0].dtype = np.float32
         self.graph.inputs[0].name = "input_tensor"
 
-        self.sanitize()
+        self.sanitize() # 清理未连接的节点、进行拓扑排序以及折叠常量输入值来净化图
         log.info(
             "ONNX graph input shape: {} [NCHW format set]".format(
                 self.graph.inputs[0].shape
@@ -304,6 +315,19 @@ class DET2GraphSurgeon:
         user_threshold,
         nms_name=None,
     ):
+        # 用于创建NMS插件节点的辅助函数, 使用选定的输入。
+        # EfficientNMS_TRT TensorRT插件适用于我们的用例。
+        # :param boxes: 来自Box Net的边界框预测结果。
+        # :param scores: 来自Class Net的类别预测结果。
+        # :param anchors: 默认的锚点坐标。
+        # :param background_class: 背景类别的标签ID。
+        # :param max_proposals: NMS生成的提议数量。
+        # :param score_activation: 如果设置为True, 在NMS操作期间对置信度分数应用sigmoid激活函数；如果为False, 则不进行激活。
+        # :param iou_threshold: NMS的交并比阈值, 由self.det2_cfg提供。
+        # :param nms_score_threshold: NMS的得分阈值, 由self.det2_cfg提供。
+        # :param user_threshold: 用户指定的阈值, 用于覆盖默认的NMS得分阈值。
+        # :param nms_name: 图中NMS节点的名称, 根据需要重命名NMS元素以避免循环。
+
         # Helper function to create the NMS Plugin node with the selected inputs.
         # EfficientNMS_TRT TensorRT Plugin is suitable for our use case.
         # :param boxes: The box predictions from the Box Net.
@@ -355,7 +379,7 @@ class DET2GraphSurgeon:
             nms_output_classes,
         ]
 
-        # Plugin.
+        # Plugin.TODO: 具体创建插件的流程如何 ？
         self.graph.plugin(
             op="EfficientNMS_TRT",
             name="nms" + nms_name,
@@ -389,6 +413,19 @@ class DET2GraphSurgeon:
         num_rois,
         ra_name,
     ):
+        # 用于创建 ROIAlign 插件节点的辅助函数, 使用选定的输入。
+        # PyramidROIAlign_TRT TensorRT 插件适用于我们的用例。
+        # :param rois: 上一阶段 NMS 节点输出的感兴趣区域/检测框。
+        # :param p2: p2 特征图的输出。
+        # :param p3: p3 特征图的输出。
+        # :param p4: p4 特征图的输出。
+        # :param p5: p5 特征图的输出。
+        # :param pooled_size: 池化输出的维度。
+        # :param sampling_ratio: 用于计算每个池化输出区间的插值网格中采样点的数量。
+        # :param roi_align_type: Detectron 2 ROIAlign 操作类型, 可选 ROIAlign( 原生）或 ROIAlignV2( 坐标偏移 0.5）。
+        # :param num_rois: ROIAlign 操作产生的区域数量。
+        # :param ra_name: 图中 ROIAlign 节点的名称, 根据需要重命名 ROIAlign 元素以消除循环。
+
         # Helper function to create the ROIAlign Plugin node with the selected inputs.
         # PyramidROIAlign_TRT TensorRT Plugin is suitable for our use case.
         # :param rois: Regions of interest/detection boxes outputs from preceding NMS node.
@@ -402,6 +439,7 @@ class DET2GraphSurgeon:
         # :param num_rois: Number of ROIs resulting from ROIAlign operation.
         # :param ra_name: Name of ROIAlign node in a graph, renames ROIAlign elements accordingly in order to eliminate cycles.
 
+        # 不同类型的 Detectron 2 ROIAlign 操作需要坐标偏移, 而 PyramidROIAlign_TRT 支持此类偏移。
         # Different types of Detectron 2's ROIAlign ops require coordinate offset that is supported by PyramidROIAlign_TRT.
         if roi_align_type == "ROIAlignV2":
             roi_coords_transform = 2
@@ -428,7 +466,7 @@ class DET2GraphSurgeon:
 
         # Plugin.
         self.graph.plugin(
-            op="PyramidROIAlign_TRT",
+            op="PyramidROIAlign_TRT", # 使用 TensorRT 内置的 Pyramid ROI Align 插件
             name="roi_align_" + ra_name,
             inputs=[rois, p2, p3, p4, p5],
             outputs=[roi_align_output],
@@ -451,16 +489,21 @@ class DET2GraphSurgeon:
         self, anchors, first_nms_threshold=None, second_nms_threshold=None
     ):
         """
-        Processes the graph to replace the GenerateProposals and BoxWithNMSLimit operations with EfficientNMS_TRT
-        TensorRT plugin nodes and ROIAlign operations with PyramidROIAlign_TRT plugin nodes.
-        :param anchors: Anchors generated from sample image "offline" by Detectron 2, since anchors are not provided
-        inside the graph.
-        :param first_nms_threshold: Override the 1st NMS score threshold value. If set to None, use the value in the graph.
-        :param second_nms_threshold: Override the 2nd NMS score threshold value. If set to None, use the value in the graph.
+        处理计算图, 将 GenerateProposals 和 BoxWithNMSLimit 操作替换为 EfficientNMS_TRT 插件节点, 将 ROIAlign 操作替换为 PyramidROIAlign_TRT 插件节点。
+        :param anchors: 由 Detectron 2 从示例图像“离线”生成的锚点, 因为图中未提供锚点。
+        :param first_nms_threshold: 覆盖第一个 NMS 分数阈值。如果设置为 None, 则使用图中的值。
+        :param second_nms_threshold: 覆盖第二个 NMS 分数阈值。如果设置为 None, 则使用图中的值。
         """
+        # Processes the graph to replace the GenerateProposals and BoxWithNMSLimit operations with EfficientNMS_TRT
+        # TensorRT plugin nodes and ROIAlign operations with PyramidROIAlign_TRT plugin nodes.
+        # :param anchors: Anchors generated from sample image "offline" by Detectron 2, since anchors are not provided
+        # inside the graph.
+        # :param first_nms_threshold: Override the 1st NMS score threshold value. If set to None, use the value in the graph.
+        # :param second_nms_threshold: Override the 2nd NMS score threshold value. If set to None, use the value in the graph.
 
         def backbone():
             """
+            更新 graph, 将 backbone 中所有 ResizeNearest 操作替换为 ResizeNearest 插件。
             Updates the graph to replace all ResizeNearest ops with ResizeNearest plugins in backbone.
             """
             # Get final backbone outputs.
@@ -473,11 +516,15 @@ class DET2GraphSurgeon:
 
         def proposal_generator(anchors, first_nms_threshold):
             """
-            Updates the graph to replace all GenerateProposals Caffe ops with one single NMS for proposals generation.
-            :param anchors: Anchors generated from sample image "offline" by Detectron 2, since anchors are not provided
-            inside the graph
-            :param first_nms_threshold: Override the 1st NMS score threshold value. If set to None, use the value in the graph.
+            更新图结构, 将所有 GenerateProposals Caffe 操作替换为一个单一的 NMS 操作以生成提议框。  
+            :param anchors: 由 Detectron 2 在“离线”状态下从样本图像中生成的锚点, 因为图中未提供锚点信息。  
+            :param first_nms_threshold: 覆盖第一个 NMS 的分数阈值。如果设置为 None, 则使用图中已有的值。
             """
+            # Updates the graph to replace all GenerateProposals Caffe ops with one single NMS for proposals generation.
+            # :param anchors: Anchors generated from sample image "offline" by Detectron 2, since anchors are not provided
+            # inside the graph
+            # :param first_nms_threshold: Override the 1st NMS score threshold value. If set to None, use the value in the graph.
+
             # Get nodes containing final objectness logits.
             p2_logits = self.graph.find_node_by_op_name(
                 "Flatten", "/proposal_generator/Flatten"
@@ -579,18 +626,29 @@ class DET2GraphSurgeon:
 
         def roi_heads(rpn_outputs, p2, p3, p4, p5, second_nms_threshold):
             """
-            Updates the graph to replace all ROIAlign Caffe ops with one single pyramid ROIAlign. Eliminates CollectRpnProposals
-            DistributeFpnProposals and BatchPermutation nodes that are not supported by TensorRT. Connects pyramid ROIAlign to box_head
-            and connects box_head to final box head outputs in a form of second NMS. In order to implement mask head outputs,
-            similar steps as in box_pooler are performed to replace mask_pooler. Finally, reimplemented mask_pooler is connected to
-            mask_head and mask head outputs are produced.
-            :param rpn_outputs: Outputs of the first NMS/proposal generator.
-            :param p2: Output of p2 feature map, required for ROIAlign operation.
-            :param p3: Output of p3 feature map, required for ROIAlign operation.
-            :param p4: Output of p4 feature map, required for ROIAlign operation.
-            :param p5: Output of p5 feature map, required for ROIAlign operation.
-            :param second_nms_threshold: Override the 2nd NMS score threshold value. If set to None, use the value in the graph.
+            更新图结构, 将所有ROIAlign Caffe 操作替换为单个金字塔ROIAlign操作, 并移除 CollectRpnProposals、DistributeFpnProposals、BatchPermutation 节点
+            (这些节点不被TensorRT支持)。将金字塔ROIAlign连接到box_head, 再将box_head与最终的box head输出以第二阶段NMS的形式连接。
+            为了实现掩码头输出, 执行与box_pooler 类似的操作来替换 mask_pooler。最后, 重新实现的 mask_pooler 连接至 mask_head, 从而生成mask head输出。
+
+            :param rpn_outputs: 第一个NMS/提议生成器的输出。
+            :param p2: p2特征图的输出, 用于ROIAlign操作。
+            :param p3: p3特征图的输出, 用于ROIAlign操作。
+            :param p4: p4特征图的输出, 用于ROIAlign操作。
+            :param p5: p5特征图的输出, 用于ROIAlign操作。
+            :param second_nms_threshold: 重写第二个NMS分数阈值。如果设置为None, 则使用图中已有的值。
             """
+            # Updates the graph to replace all ROIAlign Caffe ops with one single pyramid ROIAlign. Eliminates CollectRpnProposals
+            # DistributeFpnProposals and BatchPermutation nodes that are not supported by TensorRT. Connects pyramid ROIAlign to box_head
+            # and connects box_head to final box head outputs in a form of second NMS. In order to implement mask head outputs,
+            # similar steps as in box_pooler are performed to replace mask_pooler. Finally, reimplemented mask_pooler is connected to
+            # mask_head and mask head outputs are produced.
+            # :param rpn_outputs: Outputs of the first NMS/proposal generator.
+            # :param p2: Output of p2 feature map, required for ROIAlign operation.
+            # :param p3: Output of p3 feature map, required for ROIAlign operation.
+            # :param p4: Output of p4 feature map, required for ROIAlign operation.
+            # :param p5: Output of p5 feature map, required for ROIAlign operation.
+            # :param second_nms_threshold: Override the 2nd NMS score threshold value. If set to None, use the value in the graph.
+            
             # Create ROIAlign node.
             box_pooler_output = self.ROIAlign(
                 rpn_outputs[1],
@@ -816,12 +874,11 @@ class DET2GraphSurgeon:
 
 
 def main(args):
-    det2_gs = DET2GraphSurgeon(args.exported_onnx, args.det2_config, args.det2_weights)
-    det2_gs.update_preprocessor(args.batch_size)
-    anchors = det2_gs.get_anchors(args.sample_image)
-    det2_gs.process_graph(anchors, args.first_nms_threshold, args.second_nms_threshold)
+    det2_gs = DET2GraphSurgeon(args.exported_onnx, args.det2_config, args.det2_weights) # 常量折叠, 参数配置
+    det2_gs.update_preprocessor(args.batch_size)     # 预处理缩减, sanitize未连接的节点、进行拓扑排序以及折叠常量输入值来净化图
+    anchors = det2_gs.get_anchors(args.sample_image) # 获取锚点, 用于后续动态算子改为内置插件
+    det2_gs.process_graph(anchors, args.first_nms_threshold, args.second_nms_threshold) # 子图替换为内置插件
     det2_gs.save(args.onnx)
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
