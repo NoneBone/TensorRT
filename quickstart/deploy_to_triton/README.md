@@ -1,5 +1,7 @@
 # TensorRT to Triton
 
+ en [English](./README.md) ｜ zh_CN [简体中文](./README_zh.md)
+
 This quick start guide showcases how to deploy a simple ResNet model accelerated by using TensorRT on Triton Inference Server. Optimization and deployment go hand in hand in a discussion about Machine Learning infrastructure. For a TensorRT user, network level optimization to get the maximum performance would already be an area of expertize. 
 
 However, serving this optimized model comes with its own set of considerations and challenges, such as building infrastructure to support concurrent model executions, supporting clients over HTTP, gRPC and more.

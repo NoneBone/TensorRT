@@ -32,7 +32,7 @@ except ImportError:
     MPI = None
 
 try:
-    import nccl.core as nccl
+    import nccl.core as nccl # 要求正确支持 cuda13 的 cuda-bindings 
 except ImportError:
     nccl = None
 

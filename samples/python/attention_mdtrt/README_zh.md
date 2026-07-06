@@ -26,7 +26,7 @@ TensorRT 为多设备推理提供了多种并行策略，包括张量并行（TP
 
 `hint.json`文件告诉 polygraphy 切分工具如何划分模型。切分工具读取单设备 ONNX 图，根据提示中指定的注意力层和 I/O 张量，在适当位置插入 DistCollective 算子。
 
-```
+```sh
 {
     "parallelism": "CP",
     "attention_layers": [
@@ -75,7 +75,7 @@ pip3 install -r requirements.txt
 
 ### 步骤 1：生成单设备模型
 
-```
+```sh
 python3 create_onnx.py --output attention_sd.onnx
 ```
 
@@ -89,7 +89,7 @@ python3 create_onnx.py --output attention_sd.onnx
 
 ### 步骤 2：为多设备切分
 
-```
+```sh
 polygraphy multi-device shard attention_sd.onnx -s hint.json -o attention_md.onnx
 ```
 
@@ -99,28 +99,32 @@ polygraphy multi-device shard attention_sd.onnx -s hint.json -o attention_md.onn
 
 ### 单 GPU
 
-```
+```sh
 python3 attention_mdtrt.py \
   --onnx-path attention_sd.onnx \
   --sequence-length 56320 \
   --batch-size 1 \
-  --num-iterations 50
+  --num-iterations 5
 ```
 
 ### 多 GPU（2 个 GPU）
 
-```
-mpirun -np 2 python3 attention_mdtrt.py \
+```sh
+# TODO: 待跑通
+mpirun -np 2 --allow-run-as-root python3 attention_mdtrt.py \
   --onnx-path attention_md.onnx \
   --sequence-length 56320 \
   --batch-size 1 \
-  --num-iterations 50
+  --num-iterations 5
+  
 ```
 
 ### 使用指定的 libnccl.so
 
-```
-LD_PRELOAD=/path/to/libnccl.so mpirun -np 2 python3 attention_mdtrt.py \
+```sh
+# TODO: 待跑通
+ldconfig -p | grep nccl
+LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libnccl.so mpirun -np 2 --allow-run-as-root python3 attention_mdtrt.py \
   --onnx-path attention_md.onnx
 ```
 
