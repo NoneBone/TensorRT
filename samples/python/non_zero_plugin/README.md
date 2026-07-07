@@ -1,5 +1,7 @@
 # Python-based NonZero Plugin for TensorRT using IPluginV3
 
+ en [English](./README.md) ｜ zh_CN [简体中文](./README_zh.md)
+
 ## Description
 
 This sample, `non_zero_plugin`, implements a Python-based plugin for the NonZero operation, configurable to use a `CUDA Python` or `PyTorch` backend.

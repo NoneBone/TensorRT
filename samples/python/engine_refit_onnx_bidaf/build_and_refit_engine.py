@@ -251,7 +251,7 @@ def main():
         T2 = time.perf_counter()
         print("Engine refitted in {:.2f} ms.".format((T2 - T1) * 1000))
 
-        for profile_idx in range(engine.num_optimization_profiles):
+        for profile_idx in range(engine.num_optimization_profiles): # TODO： idx 怎么工作的？
             print("Doing inference...")
             # Do inference
             inputs, outputs, bindings = common.allocate_buffers(

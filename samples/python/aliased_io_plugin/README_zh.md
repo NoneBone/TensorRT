@@ -14,7 +14,7 @@ Scatter-add 根据给定的索引集合，将一组源值"分散"写入内存位
 
 此处我们以加法作为聚合函数，因此构建一个包含 Scatter-add 插件节点的网络。它接收一个"源"张量（存放每个节点的邻居特征）和一个"索引"张量（表示每个邻居所属的节点索引）。例如，考虑下图：
 
-aliased_io_gnn.png
+![alt text](aliased_io_gnn.png "GNN example")
 
 为简化起见，本例及整个样例中每个节点使用标量特征。"源"可表示为展平张量 `[1.0, 3.0, 5.0, 7.0, 1.0, 3.0]`，对应的源节点索引为 `[1, 2, 3, 0, 2, 3]`。显然 Scatter-add 的结果应为 `[7.0, 1.0, 4.0, 8.0]`。该结果随后按每个节点的邻居数归一化，再送入一个简单的全连接层（dense layer）并接 ReLU 激活。
 
@@ -46,15 +46,11 @@ def get_aliased_input(self, output_index: int):
 
 ## 运行样例
 
-1. 
-
-   运行样例以创建 TensorRT 推理 engine 并执行推理：
+1. 运行样例以创建 TensorRT 推理 engine 并执行推理：
 
    `python3 aliased_io_plugin.py [-h] [--precision {fp32,fp16}] [--node_features NODE_FEATURES] [--edges EDGES] [--num_classes NUM_CLASSES] [--validate] [--seed SEED]`
 
-2. 
-
-   若传入了 `--validate`标志，验证样例是否运行成功。若运行成功，应看到如下信息：
+2. 若传入了 `--validate`标志，验证样例是否运行成功。若运行成功，应看到如下信息：
 
    ```
    Validation against reference successful!

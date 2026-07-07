@@ -1,5 +1,7 @@
 # 基于 Python 的 TensorRT NonZero 插件（使用 IPluginV3）
 
+ en [English](./README.md) ｜ zh_CN [简体中文](./README_zh.md)
+
 ## 描述
 
 本样例 `non_zero_plugin`实现了一个基于 Python 的 NonZero 操作插件，可配置使用 `CUDA Python`或 `PyTorch`后端。

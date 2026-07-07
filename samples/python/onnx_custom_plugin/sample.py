@@ -114,6 +114,9 @@ def load_test_case(inputs, context_text, query_text, trt_context):
 
 
 def main():
+    # 加载包含 Hardmax 插件实现的共享对象文件。  
+    # 通过此操作，您将使用插件实现中定义的 REGISTER_TENSORRT_PLUGIN 宏，
+    # 将 Hardmax 插件注册到 TensorRT 的 PluginRegistry 中。更多详细信息请参见 plugin/customHardmaxPlugin.cpp。
     # Load the shared object file containing the Hardmax plugin implementation.
     # By doing this, you will also register the Hardmax plugin with the TensorRT
     # PluginRegistry through use of the macro REGISTER_TENSORRT_PLUGIN present

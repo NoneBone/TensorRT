@@ -97,8 +97,8 @@ def main(args):
     labels = open(labels_file, "r").read().split("\n")
 
     # Load a TensorRT engine.
-    engine = load_normal_engine(args.normal_engine)
-    refitted_engine = load_stripped_engine_and_refit(args.stripped_engine, onnx_model_file)
+    engine = load_normal_engine(args.normal_engine)# 读取 plan 并反序列化
+    refitted_engine = load_stripped_engine_and_refit(args.stripped_engine, onnx_model_file) # 根据引擎创建 refitter，并 refit from onnx(权重获取)
 
     # Allocate buffers
     inputs, outputs, bindings = common.allocate_buffers(engine)
@@ -119,8 +119,8 @@ def main(args):
     # Use context manager for proper stream lifecycle management - Normal engine
     trt_outputs = []
     with common.CudaStreamContext() as stream:
-        start_time = time.time()
         for i in range(100): # count time for 100 times of inference
+            if i >50: start_time = time.time()
             trt_outputs = common.do_inference(context, engine=engine, bindings=bindings, inputs=inputs, outputs=outputs, stream=stream)
         total_time = time.time() - start_time
         print("Normal engine inference time on 100 cases: {:.4f} seconds".format(total_time))
@@ -128,8 +128,8 @@ def main(args):
     # Use context manager for proper stream lifecycle management - Refitted engine
     trt_outputs_refitted = []
     with common.CudaStreamContext() as stream_1:
-        start_time = time.time()
         for i in range(100):
+            if i >50: start_time = time.time()
             trt_outputs_refitted = common.do_inference(context_1, engine=refitted_engine, bindings=bindings_1, inputs=inputs_1, outputs=outputs_1, stream=stream_1)
         total_time = time.time() - start_time
         print("Refitted stripped engine inference time on 100 cases: {:.4f} seconds".format(total_time))

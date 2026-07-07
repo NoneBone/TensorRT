@@ -1,5 +1,7 @@
 # TensorRT Refactored Samples
 
+ en [English](./README.md) ｜ zh_CN [简体中文](./README_zh.md)
+
 This directory contains refactored and improved versions of TensorRT samples, demonstrating best practices and modern implementations.
 
 ## Available Samples

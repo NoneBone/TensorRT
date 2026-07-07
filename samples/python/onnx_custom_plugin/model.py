@@ -43,6 +43,11 @@ def _do_graph_surgery(raw_model_path, trt_model_path):
             hardmax_node = node
     assert hardmax_node is not None, "Model does not contain a Hardmax node"
 
+    # 原始的onnx模型还使用了另一个不支持的操作符 Compress 
+    # “Compress”会返回第二个张量中所有评估为True的索引对应的第一个张量的值。
+    # 在我们的例子中，第二个张量是 Hardmax 的输出，
+    # 因此恰好只有一个索引会评估为 True，因为该位置的值为1，其余所有值均为0。
+    # 我们可以通过对数值张量与 Hardmax 输出进行点积来实现与“Compress”相同的效果。
     # The original onnx model also uses another unsupported op called "Compress".
     # "Compress" returns values from the first tensor for all indices which evaluate to
     # True in the second tensor. In our case the second Tensor is the output of Hardmax,
@@ -50,6 +55,8 @@ def _do_graph_surgery(raw_model_path, trt_model_path):
     # all other values will be 0. We can achieve the same result as "Compress" by taking the
     # dot product of our value tensor and the Hardmax output.
     #
+    # 因此，我们将用子图 Einsum(Transpose_29, Hardmax) 替换掉子图 
+    # Compress(Transpose_29, Cast(Reshape(Hardmax)))，其中 Einsum 中的方程采用点积运算。
     # So, we will replace the subgraph Compress(Transpose_29, Cast(Reshape(Hardmax)))
     # with the subgraph Einsum(Transpose_29, Hardmax) where the equation in Einsum takes the dot product.
     node_by_name = {node.name: node for node in graph.nodes}
@@ -57,19 +64,22 @@ def _do_graph_surgery(raw_model_path, trt_model_path):
     compress_node = node_by_name["Compress_31"]
 
     einsum_node = gs.Node(
-        "Einsum",
-        "Dot_of_Hardmax_and_Transpose",
-        attrs={"equation": "ij,ij->i"},  # "Dot product" of 2d tensors
-        inputs=[hardmax_node.outputs[0], transpose_node.outputs[0]],
-        outputs=[compress_node.outputs[0]],
+        "Einsum",                               # ONNX 算子类型
+        "Dot_of_Hardmax_and_Transpose",         # 节点名（调试用）
+        attrs={"equation": "ij,ij->i"},         # 爱因斯坦求和记号
+        inputs=[hardmax_node.outputs[0],        # 输入0：Hardmax 输出（掩码）
+                transpose_node.outputs[0]],     # 输入1：Transpose_29 输出（数据）
+        outputs=[compress_node.outputs[0]],     # 输出：直接复用 Compress 的输出张量
     )
     graph.nodes.append(einsum_node)
-
+    
+    # 将要被删除的旧子图与图清理操作（graph.cleanup()）分开处理
     # Separate the old subgraph which will be deleted with graph.cleanup()
     hardmax_node.o().inputs.clear()
     transpose_node.o().inputs.clear()
     compress_node.outputs.clear()
 
+    # 同时移除将字符串转换为整数作为模型第一步的 CategoryMapper 节点。
     # Also remove the CategoryMapper nodes which convert strings to integers as the first step in the model.
     # We need to convert the following structure:
     #
@@ -102,7 +112,8 @@ def _do_graph_surgery(raw_model_path, trt_model_path):
         # Save String->Int map
         with open(node.name + ".json", "w") as fp:
             json.dump(node.attrs, fp)
-
+    
+    # 拓扑排序 + 清理
     graph.cleanup().toposort()
     onnx.save(gs.export_onnx(graph), trt_model_path)
 

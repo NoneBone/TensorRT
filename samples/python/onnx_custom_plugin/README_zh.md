@@ -1,5 +1,7 @@
 # 向您的 ONNX 网络添加自定义层实现
 
+ en [English](./README.md) ｜ zh_CN [简体中文](./README_zh.md)
+
 **目录**
 
 - [描述](#description)
@@ -91,7 +93,7 @@ python3 model.py
 
 1. 构建插件及其对应的 Python 绑定。
 
-   -    在 Linux 上，运行：
+   - 在 Linux 上，运行：
 
      ```
       mkdir build && pushd build
@@ -104,16 +106,7 @@ python3 model.py
       popd
      ```
 
-     **注意：**如果任何依赖项未安装在默认位置，您可以手动指定它们。例如：
-
-     ```
-     cmake .. -DCMAKE_CUDA_COMPILER=/usr/local/cuda-x.x/bin/nvcc # （或将 /path/to/nvcc 添加到 $PATH）
-              -DCUDA_INC_DIR=/usr/local/cuda-x.x/include/  # （或将 /path/to/cuda/include 添加到 $CPLUS_INCLUDE_PATH）
-              -DTRT_LIB=/path/to/tensorrt/lib/
-              -DTRT_INCLUDE=/path/to/tensorrt/include/
-     ```
-
-   -    在 Windows 上，在 Powershell 中运行以下命令，并相应替换路径：
+   - 在 Windows 上，在 Powershell 中运行以下命令，并相应替换路径：
 
      ```
      mkdir build; pushd build

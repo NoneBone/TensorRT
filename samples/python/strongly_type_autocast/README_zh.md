@@ -1,5 +1,7 @@
 # 将 FP32 ONNX 模型转换为混合 FP32-FP16 精度，用于 TensorRT Strong Typing
 
+ en [English](./README.md) ｜ zh_CN [简体中文](./README_zh.md)
+
 **目录**
 
 - [Description](#description)
@@ -106,7 +108,7 @@ network = builder.create_network(1 << int(trt.NetworkDefinitionCreationFlag.STRO
 
 1. 运行示例：
 
-   `python3 sample.py [--mnist_dir] [--working_dir]`
+python3 sample.py --mnist_dir /root/cys/PROJECT/00-COMMON/DEMO/02-TensorRT/data/mnist --working_dir /root/cys/PROJECT/00-COMMON/DEMO/02-TensorRT/samples/python/strongly_type_autocast
 
 2. 确认示例运行成功。若成功，应看到如下输出：
 

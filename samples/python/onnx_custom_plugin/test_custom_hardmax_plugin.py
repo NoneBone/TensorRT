@@ -33,11 +33,14 @@ TRT_LOGGER = trt.Logger(trt.Logger.ERROR)
 def hardmax_reference_impl(arr, axis):
     one_hot = np.zeros(arr.shape, dtype=arr.dtype)
     argmax = np.expand_dims(np.argmax(arr, axis), axis)
-    np.put_along_axis(one_hot, argmax, 1, axis=axis)
+    np.put_along_axis(one_hot, argmax, 1, axis=axis) # 在指定轴上写入 1
     return one_hot
 
 
 def make_trt_network_and_engine(input_shape, axis):
+    '''
+    将单个插件构造为引擎
+    '''
     registry = trt.get_plugin_registry()
     plugin_creator = registry.get_creator("CustomHardmax", "1", "")
     axis_buffer = np.array([axis])
@@ -85,6 +88,9 @@ def custom_plugin_impl(input_arr, engine):
 
 
 def main():
+    '''
+    覆盖不同的张量维度 1-7D, 遍历可能的维度索引 (-N, N-1) , 随机形状与数值, 采用numpy参考值, 确保TRT插件行为正确
+    '''
     load_plugin_lib()
     for num_dims in range(1, 8):
         for axis in range(-num_dims, num_dims):

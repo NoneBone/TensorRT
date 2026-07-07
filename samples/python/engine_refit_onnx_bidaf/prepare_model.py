@@ -90,8 +90,8 @@ def main():
     original_model = onnx.load(org_model_file_path)
     graph = gs.import_onnx(original_model)
 
-    drop_category_mapper_nodes(graph)
-    replace_unsupported_ops(graph)
+    drop_category_mapper_nodes(graph) # CategoryMapper 节点全部删除，保存 str2int 的 map json，用于运行时输入load
+    replace_unsupported_ops(graph)    # HardMax 替换为 Argmax, Compress 改为 gather
     save_weights_for_refitting(graph)
 
     new_model = gs.export_onnx(graph)

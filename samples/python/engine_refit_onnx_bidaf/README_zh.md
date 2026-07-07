@@ -1,4 +1,4 @@
-# ONNX 模型的 TensorRT Engine 重构
+# ONNX 模型的 TensorRT Engine Refitting
 
  en [English](./README.md) ｜ zh_CN [简体中文](./README_zh.md)
 
@@ -22,7 +22,7 @@
 
 ## 简介
 
-本样例展示了如何通过解析器重构由 ONNX 模型构建的 engine。使用修改后的 [ONNX BiDAF 模型](https://github.com/onnx/models/tree/main/validated/text/machine_comprehension/bidirectional_attention_flow)作为样例模型，该模型实现了论文 [Bidirectional Attention Flow for Machine Comprehension](https://arxiv.org/abs/1611.01603)中描述的双向注意力流（BiDAF）网络。
+本样例展示了如何通过解析器重构由 ONNX 模型refit engine。使用修改后的 [ONNX BiDAF 模型](https://github.com/onnx/models/tree/main/validated/text/machine_comprehension/bidirectional_attention_flow)作为样例模型，该模型实现了论文 [Bidirectional Attention Flow for Machine Comprehension](https://arxiv.org/abs/1611.01603)中描述的双向注意力流（BiDAF）网络。
 
 ## 本样例如何工作？
 
@@ -51,6 +51,7 @@ pip3 install -r requirements.txt
 - 准备 ONNX 模型。（需指定数据目录。）
 
   ```
+  export TRT_DATA_DIR=/root/cys/PROJECT/00-COMMON/DEMO/02-TensorRT/data
   python3 prepare_model.py
   ```
 

@@ -234,7 +234,7 @@ def load_batch_testcase(model, host_buffer, batch, targetSize = 28):
 # static para.
 MAX_BS = 1024                       # 注意：测试集全部只有 1000 张图, 实际测试会 min 到 1000
 PT_WEIGHTS = "mnist_fp32.pth"       # 训练参数详见 model.py 51行 + 89行
-ONNX_PATH = "mnist_fp32_dynamic.onnx"
+ONNX_PATH = "mnist_fp32_dBS.onnx"
 
 def main(args=None):
     parser = argparse.ArgumentParser(description="MNIST TensorRT Demo")

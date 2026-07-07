@@ -1,5 +1,7 @@
 # 使用 Python 将 ONNX 模型导入 TensorRT 简介
 
+ en [English](./README.md) ｜ zh_CN [简体中文](./README_zh.md)
+
 **目录**
 
 - [描述](#description)
@@ -42,7 +44,7 @@ pip3 install -r requirements.txt
 
 1. 准备示例数据
 
-请参阅主示例 README 中的[准备示例数据](https://yuanbao.tencent.com/README.md#preparing-sample-data)。
+请参阅主示例 README 中的[准备示例数据](#preparing-sample-data)。
 
 ## 运行示例
 

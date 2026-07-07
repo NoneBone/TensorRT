@@ -1,5 +1,7 @@
 # 从 ONNX 模型构建与重构权重剥离引擎入门
 
+ en [English](./README.md) ｜ zh_CN [简体中文](./README_zh.md)
+
 **目录**
 
 - [描述](#description)
@@ -38,14 +40,16 @@
 
 2. 准备示例数据
 
-   参见主示例 README 中的 [准备示例数据](https://yuanbao.tencent.com/README.md#preparing-sample-data)。
+   参见主示例 README 中的 [准备示例数据](#preparing-sample-data)。
 
 ## 运行示例
 
 1. 构建并保存普通引擎和权重剥离引擎：
 
    ```
-   python3 build_engines.py --output_stripped_engine=stripped_engine.trt --output_normal_engine=normal_engine.trt
+   python3 build_engines.py --output_stripped_engine=stripped_engine.trt --output_normal_engine=normal_engine.trt \
+   --stripped_onnx=/root/cys/PROJECT/00-COMMON/DEMO/02-TensorRT/quickstart/IntroNotebooks/resnet50/model.onnx \
+   --original_onnx=/root/cys/PROJECT/00-COMMON/DEMO/02-TensorRT/quickstart/IntroNotebooks/resnet50/model.onnx
    ```
 
    运行此步骤后，你将看到两个保存好的 TensorRT 引擎。`stripped_engine.trt`包含一个剥离后的引擎（约 2.3MB），而 `normal_engine.trt`包含一个包含所有权重的普通引擎（约 51MB）。通过使用剥离引擎构建，我们可以大幅减小保存的 engine 文件体积。

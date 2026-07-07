@@ -44,7 +44,7 @@ pip3 install -r requirements.txt
 
 1. 准备示例数据
 
-   请参阅主示例 README 中的[准备示例数据](https://yuanbao.tencent.com/README.md#preparing-sample-data)。
+   请参阅主示例 README 中的[准备示例数据](#preparing-sample-data)。
 
 ## 运行示例
 
