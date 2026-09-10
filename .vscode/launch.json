@@ -1,0 +1,221 @@
+{
+    // 使用 IntelliSense 了解相关属性。 
+    // 悬停以查看现有属性的描述。
+    // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python 调试程序: 当前文件",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "py: gnn",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/samples/python/aliased_io_plugin/aliased_io_plugin.py",
+            "args": [
+                // "add",
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/samples/python/aliased_io_plugin/",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}:${env:PYTHONPATH}",
+                "CUDA_VISIBLE_DEVICES": "3",
+                "TORCH_ONNX_USE_LEGACY_EXPORTER": "1",
+                "TORCH_LOGS": "dynamic"
+            },
+            "justMyCode": false,
+            "redirectOutput": true,
+            "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "name": "py: create_onnx",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/samples/python/detectron2/create_onnx.py",
+            "args": [
+                "--exported_onnx",
+                "samples/python/detectron2/model/model.onnx",
+                "--onnx",
+                "samples/python/detectron2/model/converted.onnx",
+                "--det2_config",
+                "samples/python/detectron2/detectron2/configs/COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml",
+                "--det2_weights",
+                "/root/.torch/iopath_cache/detectron2/COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x/137849600/model_final_f10217.pkl",
+                "--sample_image",
+                "samples/python/detectron2/1344x1344.jpg"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}:${env:PYTHONPATH}",
+                "CUDA_VISIBLE_DEVICES": "0",
+                "TORCH_ONNX_USE_LEGACY_EXPORTER": "1",
+                "TORCH_LOGS": "dynamic"
+            },
+            "justMyCode": false,
+            "redirectOutput": true,
+            "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "name": "py: qdp",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/samples/python/quickly_deployable_plugins/qdp_runner.py",
+            "args": [
+                "add",
+                "--autotune",
+                "-v"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}:${env:PYTHONPATH}",
+                "CUDA_VISIBLE_DEVICES": "0",
+                "TORCH_ONNX_USE_LEGACY_EXPORTER": "1",
+                "TORCH_LOGS": "dynamic"
+            },
+            "justMyCode": false,
+            "redirectOutput": true,
+            "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "name": "py: custom_plugin",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/samples/python/onnx_custom_plugin/test_custom_hardmax_plugin.py", // sample.py
+            "args": [
+                // "--interactive",
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/samples/python/onnx_custom_plugin",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}:${env:PYTHONPATH}",
+                "CUDA_VISIBLE_DEVICES": "0",
+                "TORCH_ONNX_USE_LEGACY_EXPORTER": "1",
+                "TORCH_LOGS": "dynamic"
+            },
+            "justMyCode": false,
+            "redirectOutput": true,
+            "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "name": "py: refit_bidaf",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/samples/python/engine_refit_onnx_bidaf/build_and_refit_engine.py", // sample.py
+            "args": [
+                "--weights-location",
+                "GPU",
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/samples/python/engine_refit_onnx_bidaf",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}:${env:PYTHONPATH}",
+                // "CUDA_VISIBLE_DEVICES": "0",
+                "TORCH_ONNX_USE_LEGACY_EXPORTER": "1",
+                "TORCH_LOGS": "dynamic"
+            },
+            "justMyCode": false,
+            "redirectOutput": true,
+            "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "name": "cpp: sample",
+            "type": "cuda-gdb",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/out/sample_onnx_mnist",
+            // "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            // "environment": [],
+            "environment": [
+                {
+                    "name": "LD_LIBRARY_PATH",
+                    "value": "/usr/local/cuda-12.8/lib64:${env:LD_LIBRARY_PATH}"
+                },
+                {
+                    "name": "PATH",
+                    "value": "/usr/local/cuda-12.8/bin:${env:PATH}"
+                }
+            ],
+            "externalConsole": false,
+            // "MIMode": "gdb",
+            "miDebuggerPath": "/usr/local/cuda-12.8/bin/cuda-gdb",
+            "setupCommands": [
+                {
+                    "description": "for gdb Enable neat printing",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
+            "name": "cpp: plugin",
+            "type": "cuda-gdb",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/out/sample_non_zero_plugin",
+            "args": [
+                "-d","/root/cys/PROJECT/00-COMMON/DEMO/02-TensorRT/data/mnist"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            // "environment": [],
+            "environment": [
+                {
+                    "name": "LD_LIBRARY_PATH",
+                    "value": "/usr/local/cuda-12.8/lib64:${env:LD_LIBRARY_PATH}"
+                },
+                {
+                    "name": "PATH",
+                    "value": "/usr/local/cuda-12.8/bin:${env:PATH}"
+                }
+            ],
+            "externalConsole": false,
+            // "MIMode": "gdb",
+            "miDebuggerPath": "/usr/local/cuda-12.8/bin/cuda-gdb",
+            "setupCommands": [
+                {
+                    "description": "for gdb Enable neat printing",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
+            "name": "cpp: tmp",
+            "type": "cuda-gdb",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/out/sample_non_zero_plugin",
+            "args": [
+                "-d","/root/cys/PROJECT/00-COMMON/DEMO/02-TensorRT/data/mnist"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            // "environment": [],
+            "environment": [
+                {
+                    "name": "LD_LIBRARY_PATH",
+                    "value": "/usr/local/cuda-12.8/lib64:${env:LD_LIBRARY_PATH}"
+                },
+                {
+                    "name": "PATH",
+                    "value": "/usr/local/cuda-12.8/bin:${env:PATH}"
+                }
+            ],
+            "externalConsole": false,
+            // "MIMode": "gdb",
+            "miDebuggerPath": "/usr/local/cuda-12.8/bin/cuda-gdb",
+            "setupCommands": [
+                {
+                    "description": "for gdb Enable neat printing",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+    ]
+}

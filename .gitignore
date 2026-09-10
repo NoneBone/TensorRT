@@ -28,3 +28,5 @@ CategoryMapper_*.json
 *.out
 bin/
 samples/python/detectron2/detectron2
+output_dir/
+*.cache
